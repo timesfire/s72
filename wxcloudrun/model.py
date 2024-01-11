@@ -18,6 +18,7 @@ class Counters(db.Model):
 class Room(db.Model):
     # 设置结构体表格名称
     __tablename__ = 'room'
+    
 
     # 设定结构体对应表格的字段
     id = db.Column(db.Integer, primary_key=True)
