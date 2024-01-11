@@ -72,7 +72,7 @@ def get_count():
 @app.route('/api/createRoom', methods=['POST'])
 def create_room():
     """
-    :return: 房间信息
+    :return: 房间信息x
     """
     room = Room(name=randomRoomName(), status=1, create_at=datetime.now())
     insert_room(room)
