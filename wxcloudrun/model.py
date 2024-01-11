@@ -22,6 +22,6 @@ class Room(db.Model):
 
     # 设定结构体对应表格的字段
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Character)
+    name = db.Column(db.String(20))
     status = db.Column(db.Integer, default=1)
     created_at = db.Column('created_at', db.TIMESTAMP, nullable=False, default=datetime.now())
