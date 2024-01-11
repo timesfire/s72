@@ -74,7 +74,7 @@ def create_room():
     """
     :return: 房间信息xx
     """
-    room = Room(name=randomRoomName(), status=1, create_at=datetime.now())
+    room = Room(name=randomRoomName(), status=1, created_at=datetime.now())
     insert_room(room)
     return make_succ_response(room)
 
