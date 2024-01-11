@@ -62,3 +62,15 @@ def update_counterbyid(counter):
         db.session.commit()
     except OperationalError as e:
         logger.info("update_counterbyid errorMsg= {} ".format(e))
+
+
+def insert_room(room):
+    """
+    插入一个room实体
+    :param room: Room实体
+    """
+    try:
+        db.session.add(room)
+        db.session.commit()
+    except OperationalError as e:
+        logger.info("insert_room errorMsg= {} ".format(e))

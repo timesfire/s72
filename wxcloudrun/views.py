@@ -1,10 +1,13 @@
 from datetime import datetime
+import random
+
 from flask import render_template, request
 from run import app
-from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid
-from wxcloudrun.model import Counters
+from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid, insert_room
+from wxcloudrun.model import Counters, Room
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
 
+words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 @app.route('/')
 def index():
@@ -64,3 +67,20 @@ def get_count():
     """
     counter = Counters.query.filter(Counters.id == 1).first()
     return make_succ_response(0) if counter is None else make_succ_response(counter.count)
+
+
+@app.route('/api/createRoom', methods=['POST'])
+def create_room():
+    """
+    :return: 房间信息
+    """
+    room = Room(name=randomRoomName(), status=1, create_at=datetime.now())
+    insert_room(room)
+    return make_succ_response(room)
+
+
+def randomRoomName():
+    terms = ''
+    for _ in range(3):
+        terms = terms + str(random.sample(words, 1))
+    return terms
