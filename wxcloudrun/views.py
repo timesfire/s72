@@ -76,7 +76,7 @@ def create_room():
     """
     room = Room(name=randomRoomName(), status=1, created_at=datetime.now())
     insert_room(room)
-    return make_succ_response(room)
+    return make_succ_response(room.id)
 
 
 def randomRoomName():
