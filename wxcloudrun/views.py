@@ -221,39 +221,62 @@ def login():
     # 获取请求体参数
     APPID="wx6f6f3e6f46e9d199"
     SECRET="35c80409f56b5ec27b8867176426657b"
-    code = request.values.get("code")
-    resp = requests.get(url=f"http://api.weixin.qq.com/sns/jscode2session?appid={APPID}&secret={SECRET}&js_code={code}&grant_type=authorization_code")
-    # {
-    # "openid":"xxxxxx",
-    # "session_key":"xxxxx",
-    # "unionid":"xxxxx",
-    # "errcode":0,
-    # "errmsg":"xxxxx"
-    # }
-    #
-    print(resp.text)
-    jsonData = resp.json()
-    if jsonData.get('openid') is not None:
-        openId = jsonData['openid']
-        # 返回用户信息
-        user = query_user_by_openid(openId)
-        if user is None:
-            user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'),latest_room_id=0)
-            insert_user(user)
-        return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url})
+    
+     # 获取请求体参数
+    params = request.get_json()
+    
+    code = params.get("code")
+    userId = params.get("userId")
+    
+    if userId is not None:
+        user = dao.query_user_by_id(userId)
+        if user is not None:
+            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url})
+        else:
+            logInfo(f"userId: {userId} 用户不存在")
+            return make_err_response("用户不存在")
+    elif code is not None:
+        resp = requests.get(url=f"http://api.weixin.qq.com/sns/jscode2session?appid={APPID}&secret={SECRET}&js_code={code}&grant_type=authorization_code")
+        # {
+        # "openid":"xxxxxx",
+        # "session_key":"xxxxx",
+        # "unionid":"xxxxx",
+        # "errcode":0,
+        # "errmsg":"xxxxx"
+        # }
+        #
+        print(resp.text)
+        jsonData = resp.json()
+        if jsonData.get('openid') is not None:
+            openId = jsonData['openid']
+            # 返回用户信息
+            user = query_user_by_openid(openId)
+            if user is None:
+                user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'),latest_room_id=0)
+                insert_user(user)
+            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url})
+        else:
+            logInfo(f"登录失败:{jsonData.get('errcode')}  {jsonData.get('errmsg')}")
+            return make_err_response(jsonData.get('errmsg'))
     else:
-        print(f"登录失败:{jsonData.get('errcode')}  {jsonData.get('errmsg')}")
-        return make_err_response(jsonData.get('errmsg'))
+        return make_err_response("参数错误")
+
+
+    
 
 
 @app.route('/api/updateProfile', methods=['POST'])
 def updateProfile():
     # 获取请求体参数
     params = request.get_json()
+    logInfo(params)
     userid = params['userid']
     nickname = params['nickname']
-    avatarUrl = params['avatarUrl']
-    avatarFileId = params['avatarFileId']
+    avatarUrl = None
+    avatarFileId = None
+    if 'avatarUrl' in params:
+        avatarUrl = params['avatarUrl']
+        avatarFileId = params['avatarFileId']
     # 返回用户信息
     update_user_by_id(userid, nickname, avatarUrl, avatarFileId)
     return make_succ_response("success")
@@ -416,49 +439,6 @@ def individualSettle():
     # 算分
     calculateScore(userScores,wastes)
     # 结算
-    
-    
-    
-    # for w in wastes:
-    #     if w.type == 1: # 支付
-    #         userScores[f'{w.outlay_user_id}']=userScores[f'{w.outlay_user_id}']-w.score
-    #         userScores[f'{w.receive_user_id}']=userScores[f'{w.receive_user_id}']+w.score
-    #         pass
-    #     elif w.type == 4: # 结算
-    #         settleInfo = json.loads(w.settle_info)
-    #         for settle in settleInfo:
-    #             userScores[f'{settle["outlayUserId"]}'] = userScores[f'{settle["outlayUserId"]}'] + settle['score']
-    #             userScores[f'{settle["receiveUserId"]}'] = userScores[f'{settle["receiveUserId"]}'] - settle['score']
-    
-    # 开始结算
-    # settleMsg = []
-    # currentUserScore = userScores[f'{userId}'] 
-    # sortedUserScores = sorted(userScores.items(), key=lambda kv: (kv[1], kv[0])) #结算策略，优先支付最多的
-    # if currentUserScore > 0:
-    #     for sus in sortedUserScores:
-    #         if sus[1] < 0:
-    #             tempScore = currentUserScore + sus[1]
-    #             if tempScore <= 0: # 完成结算
-    #                 settleMsg.append({"outlayUserId":sus[0],"receiveUserId":userId,"score":currentUserScore})
-    #                 break
-    #             else:
-    #                 settleMsg.append({"outlayUserId":sus[0],"receiveUserId":userId,"score":abs(sus[1])})
-    #                 currentUserScore = tempScore
-
-
-    # elif currentUserScore < 0: 
-    #     for sus in reversed(sortedUserScores):  
-    #         if sus[1] >0:
-    #             tempScore = currentUserScore + sus[1]
-    #             if tempScore >= 0: # 完成结算
-    #                 settleMsg.append({"outlayUserId":userId,"receiveUserId":sus[0],"score":abs(currentUserScore)})
-    #                 break
-    #             else:
-    #                 settleMsg.append({"outlayUserId":userId,"receiveUserId":sus[0],"score":sus[1]})
-    #                 currentUserScore = tempScore
-    # else:
-    #     # 不需要结算
-    #     return make_err_response("不需要结算")
 
     settleMsg = settle(userScores,userId)
     if len(settleMsg) == 0:
@@ -497,7 +477,7 @@ def exit_room():
                 userScores[f'{settle["receiveUserId"]}'] = userScores[f'{settle["receiveUserId"]}'] - settle['score']
     
     if userScores[f'{userId}'] == 0: 
-        # 同意退出
+        # 同意退出 
         removeUserFromRoom(userId, roomId)
         return make_succ_response({"roomId": roomId,"exit":1})
     else: #  返回最新数据

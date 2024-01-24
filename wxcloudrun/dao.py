@@ -215,8 +215,9 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
         if user is None:
             return
         user.nickname = nickname
-        user.avatar_url = avatarUrl
-        user.avatar_fileid = avatarFileId
+        if avatarUrl is not None:
+            user.avatar_url = avatarUrl
+            user.avatar_fileid = avatarFileId
         db.session.flush()
         db.session.commit()
     except OperationalError as e:
