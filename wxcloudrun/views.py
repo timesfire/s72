@@ -110,11 +110,15 @@ def open_room():
 
 def removeUserFromRoom(userId, latestRoomId):
     logInfo(f'removeUserFromRoom userId:{userId} latestRoomId:{latestRoomId}')
-    dao.rm_user_form_room(userId, latestRoomId)
+    # 更新个人总得分 todo 不一定每次退出都要更新的
+    dao.rm_user_from_room_and_update_settle_score(userId,latestRoomId)
+    dao.rm_user_from_room(userId, latestRoomId) # todo remove
     dao.updateUserLatestRoomId(userId, 0)
+
     #插入房间流水记录
     user = dao.query_user_by_id(userId)
     roomWasteBook = RoomWasteBook(room_id=latestRoomId,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=3)
+    
     dao.add_waste_to_room(roomWasteBook)
 
 
@@ -143,6 +147,16 @@ def enter_room():
             elif user.latest_room_id == newRoomId:  # 已经在新的房间了，直接返回
                 return getRoomDetail(newRoom)
             else:  # 存在老的房间
+                # 判断老的房间是否需要结算，如果需要结算则先进入到老的房间
+                latestRoom = dao.query_using_roombyid(latestRoomId)
+                if latestRoom is not None:
+                    #判断是否需要结算
+                    wastes = dao.get_wastes_from_room_by_latestid(latestRoomId,0)
+                    userScores = {}
+                    calculateScore(userScores=userScores,wastes=wastes)
+                    if userScores.get(f'{userId}',0) != 0: # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
+                        return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,"wasteList": wastes,"newRoomId":newRoomId})
+
                 # 先退出之前的房间
                 removeUserFromRoom(userId, latestRoomId)
                 # 进入新的房间
@@ -357,13 +371,14 @@ def outlayScore():
 def calculateScore(userScores,wastes):
     for w in wastes:
         if w.type == 1: # 支付
-            userScores[f'{w.outlay_user_id}']=userScores[f'{w.outlay_user_id}']-w.score
-            userScores[f'{w.receive_user_id}']=userScores[f'{w.receive_user_id}']+w.score
+            userScores[f'{w.outlay_user_id}']=userScores.get(f'{w.outlay_user_id}',0)-w.score
+            userScores[f'{w.receive_user_id}']=userScores.get(f'{w.receive_user_id}',0)+w.score
         elif w.type == 4: # 个人结算
             settleInfo = json.loads(w.settle_info)
             for settle in settleInfo:
-                userScores[f'{settle["outlayUserId"]}'] = userScores[f'{settle["outlayUserId"]}'] + settle['score']
-                userScores[f'{settle["receiveUserId"]}'] = userScores[f'{settle["receiveUserId"]}'] - settle['score']
+                userScores[f'{settle["outlayUserId"]}'] = userScores.get(f'{settle["outlayUserId"]}',0) + settle['score']
+                userScores[f'{settle["receiveUserId"]}'] = userScores.get(f'{settle["receiveUserId"]}',0) - settle['score']
+
 # 结算
 def settle(userScores,currentSettleUid:int):
     curUidStr = str(currentSettleUid)
@@ -464,18 +479,10 @@ def exit_room():
 
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId,latestWasteId=latestWasteId)
-    # 验证分数是否为0
-    for w in wastes:
-        if w.type == 1: # 支付
-            userScores[f'{w.outlay_user_id}']=userScores[f'{w.outlay_user_id}']-w.score
-            userScores[f'{w.receive_user_id}']=userScores[f'{w.receive_user_id}']+w.score
-            pass
-        elif w.type == 4: # 结算
-            settleInfo = json.loads(w.settle_info)
-            for settle in settleInfo:
-                userScores[f'{settle["outlayUserId"]}'] = userScores[f'{settle["outlayUserId"]}'] + settle['score']
-                userScores[f'{settle["receiveUserId"]}'] = userScores[f'{settle["receiveUserId"]}'] - settle['score']
+    # 算分
+    calculateScore(userScores,wastes)
     
+    # 验证分数是否为0
     if userScores[f'{userId}'] == 0: 
         # 同意退出 
         removeUserFromRoom(userId, roomId)
@@ -483,3 +490,25 @@ def exit_room():
     else: #  返回最新数据
         return make_succ_response({"roomId": roomId,"exit":0,"wasteList": wastes})
     
+# 查询房间历史
+@app.route('/api/roomHistory', methods=['POST'])
+def roomHistory():
+    # 获取请求体参数
+    params = request.get_json()
+    logInfo(f"roomHistory:{params}")
+
+    userId = params['userId']
+    historys = dao.query_history_rooms_by_uid(userId)
+    historyList = []
+    for h in historys:
+        historyList.append({'id':h.id,'roomId':h.room_id,'roomName':h.room_name,'settleAmount':h.settle_amount,'time':h.time.strftime('%Y-%m-%dT%H:%M:%S')})
+    return make_succ_response(historyList)
+
+# 查询个人的对战统计情况 todo 数据是否可以合到其它的接口
+@app.route('/api/getAchievement', methods=['POST'])
+def getAchievement():
+    params = request.get_json()
+    logInfo(f"roomHistory:{params}")
+    userId = params['userId']
+    res = dao.query_achievement_by_uid(userId)
+    return make_succ_response(res)

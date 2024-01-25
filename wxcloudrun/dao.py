@@ -1,11 +1,12 @@
 import json
 import logging
 
+from sqlalchemy.sql import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.attributes import flag_modified
 
 from wxcloudrun import db
-from wxcloudrun.model import Counters, Room, User,RoomWasteBook
+from wxcloudrun.model import Counters, Room, User,RoomWasteBook,RoomMemberInfo
 
 # 初始化日志
 logger = logging.getLogger('log')
@@ -226,24 +227,33 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
 
 def add_user_to_room(uid, roomId):
     try:
-        room = query_roombyid(roomId)
-        if room is None:
-            logger.info("add_user_to_room 查询roomId:{} 为 None".format(roomId))
-            return
-        if not room.user_ids.__contains__(uid):
-            room.user_ids.append(uid)
-            flag_modified(room, "user_ids")
+        memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id==uid,RoomMemberInfo.room_id==roomId).first()
+        if memberInfo is None:
+            room = query_roombyid(roomId)
+            if room is None:
+                logger.info("add_user_to_room 查询roomId:{} 为 None".format(roomId))
+                return
+            memberInfo = RoomMemberInfo(room_id=room.id,user_id=uid,room_name=room.name,status=1,settle_amount=0)
+            db.session.add(memberInfo)
+            db.session.commit()
+        else:
+            memberInfo.status=1
             db.session.flush()
             db.session.commit()
+        # if not room.user_ids.__contains__(uid):
+        #     room.user_ids.append(uid)
+        #     flag_modified(room, "user_ids")
+        #     db.session.flush()
+        #     db.session.commit()
     except OperationalError as e:
         logger.info("add_user_to_room errorMsg= {} ".format(e))
 
 
-def rm_user_form_room(uid, roomId):
+def rm_user_from_room(uid, roomId):
     try:
         room = query_using_roombyid(roomId)
         if room is None:
-            logger.info("add_user_to_room 查询roomId:{} 为 None".format(roomId))
+            logger.info("rm_user_from_room 查询roomId:{} 为 None".format(roomId))
             return
         if room.user_ids.__contains__(uid):
             room.user_ids.remove(uid)
@@ -251,7 +261,7 @@ def rm_user_form_room(uid, roomId):
             db.session.flush()
             db.session.commit()
     except OperationalError as e:
-        logger.info("rm_user_form_room errorMsg= {} ".format(e))
+        logger.info("rm_user_from_room errorMsg= {} ".format(e))
 
 
 # -------------room waste book-----
@@ -276,3 +286,48 @@ def get_wastes_from_room_by_latestid(roomId:int,latestWasteId:int):
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.id>latestWasteId).order_by(RoomWasteBook.id).all()
     except OperationalError as e:
         logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+
+# -------------room waste book- end----
+# -------------room_member--start---
+# 更新个人总得分
+def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
+    try:
+        # 创建参数化查询的查询字符串
+        sql = text("SELECT COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND receive_user_id = :userId AND room_id = :roomId),0) - COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND outlay_user_id = :userId AND room_id=:roomId),0) AS score")
+        # 执行参数化查询
+        logger.warn("sssssss")
+        result = db.engine.execute(sql, roomId=latestRoomId, userId=userId)
+        curScore = 0
+        for r in result: # 只有一条数据 todo 去掉for
+            curScore = r[0]
+            logger.warn(f'xxxx {r[0]}')
+        logger.warn(f'xxxxxxxxx:{result.first}')
+        # curScore = result['score']
+
+        memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id==userId,RoomMemberInfo.room_id==latestRoomId).first()
+        if memberInfo is None:
+            return
+        memberInfo.settle_amount=curScore
+        
+        memberInfo.status=0
+        db.session.flush()
+        db.session.commit()
+    except OperationalError as e:
+        logger.info("updateIndividualTotalScore errorMsg= {} ".format(e))
+
+# 获取房间历史记录
+def query_history_rooms_by_uid(userId):
+    try:
+        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId).order_by(RoomMemberInfo.time.desc()).all()
+    except OperationalError as e:
+        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+
+# 获取个人的成绩
+def query_achievement_by_uid(userId):
+    try:
+        totalCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId).count()
+        successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.settle_amount>0).count()
+        return {"totalCount":totalCount,"successCount":successCount}
+    except OperationalError as e:
+        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+
