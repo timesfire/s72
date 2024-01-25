@@ -84,7 +84,7 @@ def addUserToRoom(user, room):
     dao.add_user_to_room(user.id,room.id)
     dao.updateUserLatestRoomId(user.id, room.id)
     #插入房间流水记录
-    roomWasteBook = RoomWasteBook(room_id=room.id,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=2)
+    roomWasteBook = RoomWasteBook(room_id=room.id,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=2,time=datetime.now())
     dao.add_waste_to_room(roomWasteBook)
 
 
@@ -117,7 +117,7 @@ def removeUserFromRoom(userId, latestRoomId):
 
     #插入房间流水记录
     user = dao.query_user_by_id(userId)
-    roomWasteBook = RoomWasteBook(room_id=latestRoomId,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=3)
+    roomWasteBook = RoomWasteBook(room_id=latestRoomId,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=3,time=datetime.now())
     
     dao.add_waste_to_room(roomWasteBook)
 
@@ -361,7 +361,7 @@ def outlayScore():
     latestWasteId = params['latestWasteId']
     wastes=[] 
     for ruid in receiveInfo:
-        wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid),score=receiveInfo[ruid],type=1))
+        wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid),score=receiveInfo[ruid],type=1),time=datetime.now())
     dao.add_all_wastes_to_room(wastes)
     # 返回最新的房间流水，由前端进行计算
     wastes = getRoomNewRecords(roomId,latestWasteId)
@@ -459,7 +459,7 @@ def individualSettle():
     if len(settleMsg) == 0:
         return make_err_response("不需要结算")
 
-    roomWasteBook = RoomWasteBook(room_id=roomId,user_id=userId,type=4,settle_info=json.dumps(settleMsg))
+    roomWasteBook = RoomWasteBook(room_id=roomId,user_id=userId,type=4,settle_info=json.dumps(settleMsg),time=datetime.now())
     dao.add_waste_to_room(roomWasteBook)
     
     # 因为有插入操作，第二次查询最新流水

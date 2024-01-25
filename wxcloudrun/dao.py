@@ -1,6 +1,6 @@
 import json
 import logging
-
+from datetime import datetime
 from sqlalchemy.sql import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.attributes import flag_modified
@@ -233,7 +233,7 @@ def add_user_to_room(uid, roomId):
             if room is None:
                 logger.info("add_user_to_room 查询roomId:{} 为 None".format(roomId))
                 return
-            memberInfo = RoomMemberInfo(room_id=room.id,user_id=uid,room_name=room.name,status=1,settle_amount=0)
+            memberInfo = RoomMemberInfo(room_id=room.id,user_id=uid,room_name=room.name,status=1,settle_amount=0,time=datetime.now())
             db.session.add(memberInfo)
             db.session.commit()
         else:
@@ -308,7 +308,6 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
         if memberInfo is None:
             return
         memberInfo.settle_amount=curScore
-        
         memberInfo.status=0
         db.session.flush()
         db.session.commit()
@@ -318,7 +317,7 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
 # 获取房间历史记录
 def query_history_rooms_by_uid(userId):
     try:
-        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId).order_by(RoomMemberInfo.time.desc()).all()
+        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0).order_by(RoomMemberInfo.time.desc()).all()
     except OperationalError as e:
         logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
