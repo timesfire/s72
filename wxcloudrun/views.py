@@ -20,7 +20,7 @@ words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 # websocket
-@socketio.on('my event')
+@socketio.on('event')
 def test_message(message):
     emit('my response', {'data': message['data']})
 
@@ -34,6 +34,7 @@ def test_message(message):
 def test_connect():
     emit('my response', {'data': 'Connected'})
     logInfo("-------connect------")
+    print("000000000")
 
 
 @socketio.on('disconnect')
