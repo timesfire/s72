@@ -4,17 +4,65 @@ import random
 
 import requests
 
+from flask_socketio import emit, join_room, leave_room, send
+
 from flask import render_template, request, Response, send_file, after_this_request
 # from PIL import Image
 
 from run import app
-from wxcloudrun import dao
+from wxcloudrun import dao, socketio
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid, insert_room, update_room_qr_byid, \
     query_user_by_openid, insert_user, update_user_by_id
 from wxcloudrun.model import Counters, Room, User,RoomWasteBook
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
 
 words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+# websocket
+@socketio.on('my event')
+def test_message(message):
+    emit('my response', {'data': message['data']})
+
+
+@socketio.on('my broadcast event')
+def test_message(message):
+    emit('my response', {'data': message['data']}, broadcast=True)
+
+
+@socketio.on('connect')
+def test_connect():
+    emit('my response', {'data': 'Connected'})
+    logInfo("-------connect------")
+
+
+@socketio.on('disconnect')
+def test_disconnect():
+    print('Client disconnected')
+    logInfo("-------disconnected------")
+
+
+@socketio.on('join')
+def on_join(data):
+    username = data['username']
+    room = data['room']
+    logInfo(json.dumps(data))
+    join_room(room)
+    send(username + ' has entered the room.', to=room)
+
+
+
+@socketio.on('leave')
+def on_leave(data):
+    username = data['username']
+    room = data['room']
+    logInfo(json.dumps(data))
+    leave_room(room)
+    send(username + ' has left the room.', to=room)
+
+
+# websocket end
+
 
 def logInfo(msg):
     app.logger.info(msg)
@@ -349,6 +397,14 @@ def getRoomNewRecords(roomId,latestWasteId):
     wastes = dao.get_wastes_from_room_by_latestid(roomId,latestWasteId)
     return wasteConvertToJsonList(wastes)
 
+# 刷新房间
+@app.route('/api/refreshRoom', methods=['POST'])
+def refreshRoom():
+    # 获取请求体参数
+    params = request.get_json()
+    roomId= params['roomId'] 
+    latestWasteId = params['latestWasteId']
+    return make_succ_response(getRoomNewRecords(roomId,latestWasteId))
 
 # 支付分数
 @app.route('/api/outlayScore', methods=['POST'])
