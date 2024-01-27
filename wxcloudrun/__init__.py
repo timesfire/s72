@@ -25,16 +25,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://{}:{}@{}/flask_demo'.format(con
 db = SQLAlchemy(app)
 
 
-@sock.route('/echo')
-def echo(ws):
-    print("xxxxxx")
-    while True:
-        data = ws.receive()
-        print(ws)
-        if data == 'close':
-            break
-        ws.send(data)
-    print("close---")
 
 # 加载控制器
 from wxcloudrun import views

@@ -6,7 +6,7 @@ import requests
 from flask import render_template, request
 
 from run import app
-from wxcloudrun import dao
+from wxcloudrun import dao, sock
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid, insert_room, update_room_qr_byid, \
     query_user_by_openid, insert_user, update_user_by_id
 from wxcloudrun.model import Counters, Room, User, RoomWasteBook
@@ -15,6 +15,60 @@ from wxcloudrun.response import make_succ_empty_response, make_succ_response, ma
 # from PIL import Image
 
 words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+roomMap = {}
+
+
+@sock.route('/wsx')
+def wsx(ws):
+    # The ws object has the following methods:
+    # - ws.send(data)
+    # - ws.receive(timeout=None)
+    # - ws.close(reason=None, message=None)
+    try:
+        roomId = request.values.get("roomId")
+        userId = request.values.get("userId")
+        if roomId is None or userId is None:
+            ws.send("参数为空，连接断开")
+            return
+        # 加入房间
+        if roomId in roomMap:
+            roomMap[roomId].append(ws)
+        else:
+            roomMap[roomId] = [ws]
+        # 清除房间无效连接
+        for w in roomMap[roomId]:
+            if not w.connected:
+                roomMap[roomId].remove(w)
+        while True:
+            data = ws.receive()
+            if data == 'close':
+                break
+            ws.send(data)
+        # 退出房间
+        roomMap[roomId].remove(ws)
+        if len(roomMap[roomId]) == 0:
+            del roomMap[roomId]
+        print(roomMap)
+    except:
+        print("客户端异常断开")
+        if roomId in roomMap:
+            if ws.connected:
+                ws.close()
+            roomMap[roomId].remove(ws)
+
+
+def notifyRoomChange(roomId,userId, latestWasteId):
+    wsList = roomMap.get(roomId)
+    if wsList is not None:
+        for w in wsList:
+            if w.connected:
+                w.send({'l': latestWasteId, 'u': userId})
+            else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
+                wsList.remove(w)
+
+
+
 
 def logInfo(msg):
     app.logger.info(msg)
@@ -86,6 +140,8 @@ def addUserToRoom(user, room):
     #插入房间流水记录
     roomWasteBook = RoomWasteBook(room_id=room.id,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=2,time=datetime.now())
     dao.add_waste_to_room(roomWasteBook)
+    # notify
+    notifyRoomChange(room.id,user.id,roomWasteBook.id)
 
 
 def getRoomDetail(room):
@@ -118,8 +174,9 @@ def removeUserFromRoom(userId, latestRoomId):
     #插入房间流水记录
     user = dao.query_user_by_id(userId)
     roomWasteBook = RoomWasteBook(room_id=latestRoomId,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=3,time=datetime.now())
-    
     dao.add_waste_to_room(roomWasteBook)
+
+    notifyRoomChange(latestRoomId,userId,roomWasteBook.id)
 
 
 
@@ -230,6 +287,7 @@ def getQrCode(roomId,roomName):
     downloadUrl = json.loads(downloadResp.content)['file_list'][0]['download_url']
     return downloadUrl
 
+
 @app.route('/api/login', methods=['POST'])
 def login():
     # 获取请求体参数
@@ -274,9 +332,6 @@ def login():
             return make_err_response(jsonData.get('errmsg'))
     else:
         return make_err_response("参数错误")
-
-
-    
 
 
 @app.route('/api/updateProfile', methods=['POST'])
@@ -373,6 +428,7 @@ def outlayScore():
     dao.add_all_wastes_to_room(wastes)
     # 返回最新的房间流水，由前端进行计算
     wastes = getRoomNewRecords(roomId,latestWasteId)
+    notifyRoomChange(roomId,outlayUserId,wastes[len(wastes)-1]['id'])
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
 
 # 算分
@@ -472,6 +528,7 @@ def individualSettle():
     
     # 因为有插入操作，第二次查询最新流水
     wastes = getRoomNewRecords(roomId,latestWasteId)
+    notifyRoomChange(roomId,userId,wastes[len(wastes)-1]['id'])  # todo 使用线程或协程
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
 
 # 退出房间
