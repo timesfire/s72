@@ -423,9 +423,8 @@ def outlayScore():
     roomId= params['roomId'] 
     latestWasteId = params['latestWasteId']
     wastes=[] 
-    for ruid in receiveInfo:  
-        rwb = RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid),score=receiveInfo[ruid],type=1,time=datetime.now()) 
-        wastes.append(rwb)
+    for ruid in receiveInfo:
+        wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid),score=receiveInfo[ruid],type=1,time=datetime.now()))
     dao.add_all_wastes_to_room(wastes)
     # 返回最新的房间流水，由前端进行计算
     wastes = getRoomNewRecords(roomId,latestWasteId)
