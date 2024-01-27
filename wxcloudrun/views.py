@@ -57,6 +57,23 @@ def wsx(ws):
                 ws.close()
             roomMap[roomId].remove(ws)
 
+@app.route('/testNotify')
+def testNotify():
+    try:
+        roomId = request.values.get("roomId")
+        wsList = roomMap.get(roomId)
+        if wsList is not None:
+            for w in wsList:
+                logInfo(w)
+                if w.connected:
+                    logInfo("send info")
+                    w.send({'ll': 100, 'uu': 200})
+                else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
+                    logInfo("remove")
+                    wsList.remove(w)
+        return make_succ_empty_response()
+    except Exception as e:
+        logInfo(e)
 
 def notifyRoomChange(roomId,userId, latestWasteId):
     wsList = roomMap.get(roomId)
