@@ -76,7 +76,7 @@ def testNotify():
         logInfo(e)
 
 def notifyRoomChange(roomId,userId, latestWasteId):
-    wsList = roomMap.get(roomId)
+    wsList = roomMap.get(f'{roomId}')
     if wsList is not None:
         for w in wsList:
             if w.connected:
