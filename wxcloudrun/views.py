@@ -80,7 +80,7 @@ def notifyRoomChange(roomId,userId, latestWasteId):
     if wsList is not None:
         for w in wsList:
             if w.connected:
-                w.send(json.dumps({'l': latestWasteId, 'u': userId}))
+                w.send(json.dumps({"l": latestWasteId, "u": userId}))
             else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
                 wsList.remove(w)
 
