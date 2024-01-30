@@ -214,16 +214,17 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
     try:
         user = query_user_by_id(userId)
         if user is None:
-            return False
+            return None
         user.nickname = nickname
         if avatarUrl is not None:
             user.avatar_url = avatarUrl
             user.avatar_fileid = avatarFileId
         db.session.flush()
         db.session.commit()
-        return True
+        return user
     except OperationalError as e:
         logger.info("update_user_by_id errorMsg= {} ".format(e))
+        return None
 
 
 def add_user_to_room(uid, roomId):

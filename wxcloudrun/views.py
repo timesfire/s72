@@ -366,14 +366,14 @@ def updateProfile():
         avatarUrl = params['avatarUrl']
         avatarFileId = params['avatarFileId']
     # 返回用户信息
-    isUpdateSucc = update_user_by_id(userid, nickname, avatarUrl, avatarFileId)
-    if isUpdateSucc:
+    updateUser = update_user_by_id(userid, nickname, avatarUrl, avatarFileId)
+    if updateUser is not None:
         # 查询当前用户所在的房间
 
         curRoomId = dao.query_using_roomid_by_uid(userid)
         if curRoomId is not None: # 在房间中
             # 插入房间流水记录
-            roomWasteBook = RoomWasteBook(room_id=curRoomId, user_id=userid, user_nickname=nickname, user_avatar_url=avatarUrl, type=5,
+            roomWasteBook = RoomWasteBook(room_id=curRoomId, user_id=userid, user_nickname=nickname, user_avatar_url=updateUser.avatar_url, type=5,
                                           time=datetime.now())
             dao.add_waste_to_room(roomWasteBook)
             # notify
