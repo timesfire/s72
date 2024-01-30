@@ -214,13 +214,14 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
     try:
         user = query_user_by_id(userId)
         if user is None:
-            return
+            return False
         user.nickname = nickname
         if avatarUrl is not None:
             user.avatar_url = avatarUrl
             user.avatar_fileid = avatarFileId
         db.session.flush()
         db.session.commit()
+        return True
     except OperationalError as e:
         logger.info("update_user_by_id errorMsg= {} ".format(e))
 
@@ -320,6 +321,21 @@ def query_history_rooms_by_uid(userId):
         return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0).order_by(RoomMemberInfo.time.desc()).all()
     except OperationalError as e:
         logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+
+def query_using_roomid_by_uid(uid):
+    """
+    根据uid查询使用中的Roomid
+    :param id: Room的ID
+    :return: Room实体
+    """
+    try:
+        roomMember = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == uid, RoomMemberInfo.status == 1).first()
+        if roomMember is not None:
+            return roomMember.room_id
+        return None
+    except OperationalError as e:
+        logger.info("query_roombyid errorMsg= {} ".format(e))
+        return None
 
 # 获取个人的成绩
 def query_achievement_by_uid(userId):

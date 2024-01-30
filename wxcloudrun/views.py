@@ -229,7 +229,7 @@ def enter_room():
                     userScores = {}
                     calculateScore(userScores=userScores,wastes=wastes)
                     if userScores.get(f'{userId}',0) != 0: # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
-                        return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,"wasteList": wastes,"newRoomId":newRoomId})
+                        return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,"wasteList": wasteConvertToJsonList(wastes),"newRoomId":newRoomId,"newRoomName":newRoom.name})
 
                 # 先退出之前的房间
                 removeUserFromRoom(userId, latestRoomId)
@@ -366,7 +366,19 @@ def updateProfile():
         avatarUrl = params['avatarUrl']
         avatarFileId = params['avatarFileId']
     # 返回用户信息
-    update_user_by_id(userid, nickname, avatarUrl, avatarFileId)
+    isUpdateSucc = update_user_by_id(userid, nickname, avatarUrl, avatarFileId)
+    if isUpdateSucc:
+        # 查询当前用户所在的房间
+
+        curRoomId = dao.query_using_roomid_by_uid(userid)
+        if curRoomId is not None: # 在房间中
+            # 插入房间流水记录
+            roomWasteBook = RoomWasteBook(room_id=curRoomId, user_id=userid, user_nickname=nickname, user_avatar_url=avatarUrl, type=5,
+                                          time=datetime.now())
+            dao.add_waste_to_room(roomWasteBook)
+            # notify
+            notifyRoomChange(curRoomId, userid, roomWasteBook.id)
+
     return make_succ_response("success")
 
 
