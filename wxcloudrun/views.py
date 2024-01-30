@@ -340,7 +340,7 @@ def login():
             openId = jsonData['openid']
             # 返回用户信息
             user = query_user_by_openid(openId)
-            isNewUser = 1
+            isNewUser = 0
             if user is None:
                 user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'),latest_room_id=0)
                 insert_user(user)
