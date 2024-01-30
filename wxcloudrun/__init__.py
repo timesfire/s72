@@ -19,7 +19,12 @@ sock = Sock(app)
 
 # 设定数据库链接
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://{}:{}@{}/flask_demo'.format(config.username, config.password,
-                                                                             config.db_address)
+                                                                            config.db_address)
+app.config['SQLALCHEMY_POOL_SIZE'] = 50
+app.config['SQLALCHEMY_POOL_TIMEOUT'] = 10
+app.config['SQLALCHEMY_POOL_RECYCLE'] = 300
+
+
 
 # 初始化DB操作对象
 db = SQLAlchemy(app)

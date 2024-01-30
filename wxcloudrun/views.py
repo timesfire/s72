@@ -320,7 +320,7 @@ def login():
     if userId is not None:
         user = dao.query_user_by_id(userId)
         if user is not None:
-            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url})
+            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url,"isNewUser":0})
         else:
             logInfo(f"userId: {userId} 用户不存在")
             return make_err_response("用户不存在")
@@ -340,10 +340,12 @@ def login():
             openId = jsonData['openid']
             # 返回用户信息
             user = query_user_by_openid(openId)
+            isNewUser = 1
             if user is None:
                 user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'),latest_room_id=0)
                 insert_user(user)
-            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url})
+                isNewUser = 1 # 新用户
+            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url,"isNewUser":isNewUser})
         else:
             logInfo(f"登录失败:{jsonData.get('errcode')}  {jsonData.get('errmsg')}")
             return make_err_response(jsonData.get('errmsg'))

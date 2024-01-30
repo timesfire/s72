@@ -35,7 +35,7 @@ class Room(db.Model):
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
-    nickname = db.Column(db.String(20))
+    nickname = db.Column(db.String(100))
     wx_unionid = db.Column(db.String(100))
     wx_openid = db.Column(db.String(100))
     wx_session_key = db.Column(db.String(100))
@@ -55,7 +55,7 @@ class RoomWasteBook(db.Model):
     score = db.Column(db.Float)
     type = db.Column(db.Integer) # 流水类型 1支付 2进入 3退出 4结算 5修改个人信息
     user_id = db.Column(db.Integer)
-    user_nickname = db.Column(db.String(20))
+    user_nickname = db.Column(db.String(100))
     user_avatar_url = db.Column(db.String(200))
     msg = db.Column(db.String(50))
     settle_info = db.Column(db.String(500))
