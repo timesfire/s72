@@ -1,6 +1,7 @@
+import datetime
 import json
 import random
-from datetime import datetime
+import threading
 
 import requests
 from flask import render_template, request
@@ -11,13 +12,28 @@ from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter
     query_user_by_openid, insert_user, update_user_by_id
 from wxcloudrun.model import Counters, Room, User, RoomWasteBook
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
+from flask_apscheduler import APScheduler
 
 # from PIL import Image
 
+
+# 定时任务
+scheduler = APScheduler()
+
+
+@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', hours=5)
+def clearTask():
+    logInfo(f'开始clear  {threading.current_thread()}')
+    clearRoom()
+    logInfo(f'结束clear  {threading.current_thread()}')
+
+
+scheduler.init_app(app)
+scheduler.start()
+# 定时任务 = end =
+
 words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 roomMap = {}
-
 
 @sock.route('/wsx')
 def wsx(ws):
@@ -75,7 +91,17 @@ def testNotify():
     except Exception as e:
         logInfo(e)
 
-def notifyRoomChange(roomId,userId, latestWasteId):
+
+def releaseRoomConnect(roomId):
+    wsList = roomMap.get(f'{roomId}')
+    if wsList is not None:
+        for w in wsList:
+            if w.connected:
+                w.close()
+            wsList.remove(w)
+
+
+def notifyRoomChange(roomId, userId, latestWasteId):
     wsList = roomMap.get(f'{roomId}')
     if wsList is not None:
         for w in wsList:
@@ -85,10 +111,46 @@ def notifyRoomChange(roomId,userId, latestWasteId):
                 wsList.remove(w)
 
 
+# 清理房间
+@app.route('/testclear')
+def testclear():    
+    clearRoom()
+    return make_succ_empty_response()
+
+def clearRoom():
+    logInfo(f'clearRoom {threading.current_thread()}')
+    # 查询使用时长 > 5小时的 在使用中的房间
+    flagTime = datetime.datetime.now() - datetime.timedelta(hours=5)
+    logInfo(f'flagTime:{flagTime}')
+    rooms = dao.query_using_room_by_usetime(flagTime)
+    logInfo(f'rooms:{len(rooms)}')
+    for r in rooms:
+        logInfo(f'开始清理房间:{r.id} :{r.name}---start--')
+        latestWaste = dao.get_latest_wastes_from_room(r.id)
+        if latestWaste is None or latestWaste.time < flagTime:
+            logInfo(f'lastwastTime:{latestWaste}')
+            if latestWaste is not None:
+                cur = datetime.datetime.now() - datetime.timedelta(days=23)
+                logInfo(f'时间{latestWaste.time}比较:{latestWaste.time < flagTime}')
+                logInfo(f'时间{cur}比较:{latestWaste.time < cur}')
+            # 开始清理房间  
+            userScores = {}
+            if latestWaste is not None:  # 存在最后一条数据才可能存在更多流水
+                wlist = dao.get_outlay_wastes_from_room(r.id)
+                if wlist is not None:
+                    for w in wlist:
+                        userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
+                        userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score
+            logInfo(f'userScores:{userScores}')
+            dao.autoReleaseRoom(r.id, userScores)
+            logInfo(f'{r.id} :{r.name}---end--')
+            # 移除 websocket 连接
+            releaseRoomConnect(r.id)
+    
 
 
 def logInfo(msg):
-    app.logger.info(msg)
+    app.logger.warn(msg)
 
 @app.route('/')
 def index():
@@ -121,13 +183,13 @@ def count():
             counter = Counters()
             counter.id = 1
             counter.count = 1
-            counter.created_at = datetime.now()
-            counter.updated_at = datetime.now()
+            counter.created_at = datetime.datetime.now()
+            counter.updated_at = datetime.datetime.now()
             insert_counter(counter)
         else:
             counter.id = 1
             counter.count += 1
-            counter.updated_at = datetime.now()
+            counter.updated_at = datetime.datetime.now()
             update_counterbyid(counter)
         return make_succ_response(counter.count)
 
@@ -152,18 +214,19 @@ def get_count():
 
 def addUserToRoom(user, room):
     logInfo(f'addUserToRoom(userId:{user.id},roomId:{room.id})')
-    dao.add_user_to_room(user.id,room.id)
+    dao.add_user_to_room(user.id, room.id)
     dao.updateUserLatestRoomId(user.id, room.id)
-    #插入房间流水记录
-    roomWasteBook = RoomWasteBook(room_id=room.id,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=2,time=datetime.now())
+    # 插入房间流水记录
+    roomWasteBook = RoomWasteBook(room_id=room.id, user_id=user.id, user_nickname=user.nickname, user_avatar_url=user.avatar_url, type=2,
+                                  time=datetime.datetime.now())
     dao.add_waste_to_room(roomWasteBook)
     # notify
-    notifyRoomChange(room.id,user.id,roomWasteBook.id)
+    notifyRoomChange(room.id, user.id, roomWasteBook.id)
 
 
 def getRoomDetail(room):
-    wastes = getRoomNewRecords(room.id,0)
-    data = {"roomId": room.id, "roomName": room.name, "shareQrUrl": room.share_qr,"wasteList": wastes}
+    wastes = getRoomNewRecords(room.id, 0)
+    data = {"roomId": room.id, "roomName": room.name, "shareQrUrl": room.share_qr, "wasteList": wastes}
     app.logger.info(data)
     return make_succ_response(data)
 
@@ -184,17 +247,17 @@ def open_room():
 def removeUserFromRoom(userId, latestRoomId):
     logInfo(f'removeUserFromRoom userId:{userId} latestRoomId:{latestRoomId}')
     # 更新个人总得分 todo 不一定每次退出都要更新的
-    dao.rm_user_from_room_and_update_settle_score(userId,latestRoomId)
-    dao.rm_user_from_room(userId, latestRoomId) # todo remove
+    dao.rm_user_from_room_and_update_settle_score(userId, latestRoomId)
+    # dao.rm_user_from_room(userId, latestRoomId) #
     dao.updateUserLatestRoomId(userId, 0)
 
-    #插入房间流水记录
+    # 插入房间流水记录
     user = dao.query_user_by_id(userId)
-    roomWasteBook = RoomWasteBook(room_id=latestRoomId,user_id=user.id,user_nickname=user.nickname,user_avatar_url=user.avatar_url,type=3,time=datetime.now())
+    roomWasteBook = RoomWasteBook(room_id=latestRoomId, user_id=user.id, user_nickname=user.nickname, user_avatar_url=user.avatar_url, type=3,
+                                  time=datetime.datetime.now())
     dao.add_waste_to_room(roomWasteBook)
 
-    notifyRoomChange(latestRoomId,userId,roomWasteBook.id)
-
+    notifyRoomChange(latestRoomId, userId, roomWasteBook.id)
 
 
 # 进入房间
@@ -204,7 +267,7 @@ def enter_room():
     进入开房
     :return: 房间信息xxx
     """
-    
+
     userId = int(request.values.get("userId"))
     roomIdStr = request.values.get("roomId")
     user = dao.query_user_by_id(userId)
@@ -224,12 +287,13 @@ def enter_room():
                 # 判断老的房间是否需要结算，如果需要结算则先进入到老的房间
                 latestRoom = dao.query_using_roombyid(latestRoomId)
                 if latestRoom is not None:
-                    #判断是否需要结算
-                    wastes = dao.get_wastes_from_room_by_latestid(latestRoomId,0)
+                    # 判断是否需要结算
+                    wastes = dao.get_wastes_from_room_by_latestid(latestRoomId, 0)
                     userScores = {}
-                    calculateScore(userScores=userScores,wastes=wastes)
-                    if userScores.get(f'{userId}',0) != 0: # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
-                        return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,"wasteList": wasteConvertToJsonList(wastes),"newRoomId":newRoomId,"newRoomName":newRoom.name})
+                    calculateScore(userScores=userScores, wastes=wastes)
+                    if userScores.get(f'{userId}', 0) != 0:  # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
+                        return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,
+                                                   "wasteList": wasteConvertToJsonList(wastes), "newRoomId": newRoomId, "newRoomName": newRoom.name})
 
                 # 先退出之前的房间
                 removeUserFromRoom(userId, latestRoomId)
@@ -248,6 +312,7 @@ def enter_room():
                 return getRoomDetail(room)
     return make_err_response("已退出房间或房间已关闭")
 
+
 def getCacheRoom():
     room = dao.get_empty_room_and_update_status()
     if room is None:
@@ -256,11 +321,12 @@ def getCacheRoom():
 
 
 def createRoom(status):
-    room = Room(name=randomRoomName(), status=status, created_at=datetime.now(),user_ids=[])
+    room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[])
     insert_room(room)
     qrcodeUrl = getQrCode(room.id, room.name)
     update_room_qr_byid(room.id, qrcodeUrl)
     return room
+
 
 # 批量生产房间
 # todo:remove route
@@ -269,9 +335,10 @@ def batchCreateRoom():
     for i in range(1, 100):
         createRoom(0)
 
-def getQrCode(roomId,roomName):
+
+def getQrCode(roomId, roomName):
     qrImg = requests.post(url="http://api.weixin.qq.com/wxa/getwxacodeunlimit",
-                          json={"page": "pages/index/index","scene": "a=1", "width": 300,"check_path": False})
+                          json={"page": "pages/index/index", "scene": "a=1", "width": 300, "check_path": False})
     # print(qrImg.text)
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
@@ -308,24 +375,25 @@ def getQrCode(roomId,roomName):
 @app.route('/api/login', methods=['POST'])
 def login():
     # 获取请求体参数
-    APPID="wx6f6f3e6f46e9d199"
-    SECRET="35c80409f56b5ec27b8867176426657b"
-    
-     # 获取请求体参数
+    APPID = "wx6f6f3e6f46e9d199"
+    SECRET = "35c80409f56b5ec27b8867176426657b"
+
+    # 获取请求体参数
     params = request.get_json()
-    
+
     code = params.get("code")
     userId = params.get("userId")
-    
+
     if userId is not None:
         user = dao.query_user_by_id(userId)
         if user is not None:
-            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url,"isNewUser":0})
+            return make_succ_response({"id": user.id, "nickname": user.nickname, "avatar_url": user.avatar_url, "isNewUser": 0})
         else:
             logInfo(f"userId: {userId} 用户不存在")
             return make_err_response("用户不存在")
     elif code is not None:
-        resp = requests.get(url=f"http://api.weixin.qq.com/sns/jscode2session?appid={APPID}&secret={SECRET}&js_code={code}&grant_type=authorization_code")
+        resp = requests.get(
+            url=f"http://api.weixin.qq.com/sns/jscode2session?appid={APPID}&secret={SECRET}&js_code={code}&grant_type=authorization_code")
         # {
         # "openid":"xxxxxx",
         # "session_key":"xxxxx",
@@ -342,10 +410,10 @@ def login():
             user = query_user_by_openid(openId)
             isNewUser = 0
             if user is None:
-                user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'),latest_room_id=0)
+                user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'), latest_room_id=0)
                 insert_user(user)
-                isNewUser = 1 # 新用户
-            return make_succ_response({"id":user.id,"nickname":user.nickname,"avatar_url":user.avatar_url,"isNewUser":isNewUser})
+                isNewUser = 1  # 新用户
+            return make_succ_response({"id": user.id, "nickname": user.nickname, "avatar_url": user.avatar_url, "isNewUser": isNewUser})
         else:
             logInfo(f"登录失败:{jsonData.get('errcode')}  {jsonData.get('errmsg')}")
             return make_err_response(jsonData.get('errmsg'))
@@ -371,10 +439,10 @@ def updateProfile():
         # 查询当前用户所在的房间
 
         curRoomId = dao.query_using_roomid_by_uid(userid)
-        if curRoomId is not None: # 在房间中
+        if curRoomId is not None:  # 在房间中
             # 插入房间流水记录
             roomWasteBook = RoomWasteBook(room_id=curRoomId, user_id=userid, user_nickname=nickname, user_avatar_url=updateUser.avatar_url, type=5,
-                                          time=datetime.now())
+                                          time=datetime.datetime.now())
             dao.add_waste_to_room(roomWasteBook)
             # notify
             notifyRoomChange(curRoomId, userid, roomWasteBook.id)
@@ -391,9 +459,7 @@ def get_qrcode():
     roomId = "1"
     roomName = "XGF"
 
-
-    return make_succ_response(getQrCode(roomId,roomName))
-
+    return make_succ_response(getQrCode(roomId, roomName))
 
     # ROOT_PATH = os.path.dirname(__file__)
     # new_file_name = os.path.join(f"{ROOT_PATH}/static/images","xx.png")
@@ -417,32 +483,38 @@ def get_qrcode():
     # return make_succ_response(0)
 
 
-
 def randomRoomName():
     terms = ''
     for _ in range(3):
         terms = terms + str(random.sample(words, 1)[0])
     return terms
 
+
 def wasteConvertToJsonList(wastes):
     wasteList = []
     for w in wastes:
-        wasteList.append({"id":w.id,"roomId":w.room_id,"outlayUserId":w.outlay_user_id,"receiveUserId":w.receive_user_id,"score":w.score,"type":w.type,"userId":w.user_id,"userNickname":w.user_nickname,"userAvatarUrl":w.user_avatar_url, "settleInfo":w.settle_info, "msg":w.msg,"time":w.time.strftime('%Y-%m-%d %H:%M:%S')})
+        wasteList.append(
+            {"id": w.id, "roomId": w.room_id, "outlayUserId": w.outlay_user_id, "receiveUserId": w.receive_user_id, "score": w.score, "type": w.type,
+             "userId": w.user_id, "userNickname": w.user_nickname, "userAvatarUrl": w.user_avatar_url, "settleInfo": w.settle_info, "msg": w.msg,
+             "time": w.time.strftime('%Y-%m-%d %H:%M:%S')})
     print(wasteList)
     return wasteList
 
-def getRoomNewRecords(roomId,latestWasteId):
-    wastes = dao.get_wastes_from_room_by_latestid(roomId,latestWasteId)
+
+def getRoomNewRecords(roomId, latestWasteId):
+    wastes = dao.get_wastes_from_room_by_latestid(roomId, latestWasteId)
     return wasteConvertToJsonList(wastes)
+
 
 # 刷新房间
 @app.route('/api/refreshRoom', methods=['POST'])
 def refreshRoom():
     # 获取请求体参数
     params = request.get_json()
-    roomId= params['roomId'] 
+    roomId = params['roomId']
     latestWasteId = params['latestWasteId']
-    return make_succ_response(getRoomNewRecords(roomId,latestWasteId))
+    return make_succ_response(getRoomNewRecords(roomId, latestWasteId))
+
 
 # 支付分数
 @app.route('/api/outlayScore', methods=['POST'])
@@ -450,62 +522,66 @@ def outlayScore():
     # 获取请求体参数
     params = request.get_json()
     outlayUserId = params['outlayUserId']
-    receiveInfo=params['receiveInfo']
-    roomId= params['roomId'] 
+    receiveInfo = params['receiveInfo']
+    roomId = params['roomId']
     latestWasteId = params['latestWasteId']
-    wastes=[] 
+    wastes = []
     for ruid in receiveInfo:
-        wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid),score=receiveInfo[ruid],type=1,time=datetime.now()))
+        wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid), score=receiveInfo[ruid], type=1,
+                                    time=datetime.datetime.now()))
     dao.add_all_wastes_to_room(wastes)
     # 返回最新的房间流水，由前端进行计算
-    wastes = getRoomNewRecords(roomId,latestWasteId)
-    notifyRoomChange(roomId,outlayUserId,wastes[len(wastes)-1]['id'])
+    wastes = getRoomNewRecords(roomId, latestWasteId)
+    notifyRoomChange(roomId, outlayUserId, wastes[len(wastes) - 1]['id'])
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
 
+
 # 算分
-def calculateScore(userScores,wastes):
+def calculateScore(userScores, wastes):
     for w in wastes:
-        if w.type == 1: # 支付
-            userScores[f'{w.outlay_user_id}']=userScores.get(f'{w.outlay_user_id}',0)-w.score
-            userScores[f'{w.receive_user_id}']=userScores.get(f'{w.receive_user_id}',0)+w.score
-        elif w.type == 4: # 个人结算
+        if w.type == 1:  # 支付
+            userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
+            userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score
+        elif w.type == 4:  # 个人结算
             settleInfo = json.loads(w.settle_info)
             for settle in settleInfo:
-                userScores[f'{settle["outlayUserId"]}'] = userScores.get(f'{settle["outlayUserId"]}',0) + settle['score']
-                userScores[f'{settle["receiveUserId"]}'] = userScores.get(f'{settle["receiveUserId"]}',0) - settle['score']
+                userScores[f'{settle["outlayUserId"]}'] = userScores.get(f'{settle["outlayUserId"]}', 0) + settle['score']
+                userScores[f'{settle["receiveUserId"]}'] = userScores.get(f'{settle["receiveUserId"]}', 0) - settle['score']
+
 
 # 结算
-def settle(userScores,currentSettleUid:int):
+def settle(userScores, currentSettleUid: int):
     curUidStr = str(currentSettleUid)
-    settleMsg = [] # 结算结果
-    sortedUserScores = sorted(userScores.items(), key=lambda kv: (kv[1], kv[0])) #结算策略，优先支付最多的
+    settleMsg = []  # 结算结果
+    sortedUserScores = sorted(userScores.items(), key=lambda kv: (kv[1], kv[0]))  # 结算策略，优先支付最多的
     if userScores[curUidStr] > 0:
         for sus in sortedUserScores:
             if sus[1] < 0:
                 tempScore = userScores[curUidStr] + sus[1]
-                if tempScore <= 0: # 完成结算
-                    settleMsg.append({"outlayUserId":int(sus[0]),"receiveUserId":currentSettleUid,"score":userScores[curUidStr]})
-                    userScores[curUidStr]=0
-                    userScores[sus[0]]=tempScore
+                if tempScore <= 0:  # 完成结算
+                    settleMsg.append({"outlayUserId": int(sus[0]), "receiveUserId": currentSettleUid, "score": userScores[curUidStr]})
+                    userScores[curUidStr] = 0
+                    userScores[sus[0]] = tempScore
                     break
                 else:
-                    settleMsg.append({"outlayUserId":int(sus[0]),"receiveUserId":currentSettleUid,"score":abs(sus[1])})
+                    settleMsg.append({"outlayUserId": int(sus[0]), "receiveUserId": currentSettleUid, "score": abs(sus[1])})
                     userScores[curUidStr] = tempScore
                     userScores[sus[0]] = 0
-    elif userScores[curUidStr] < 0: 
-        for sus in reversed(sortedUserScores):  
-            if sus[1] >0:
+    elif userScores[curUidStr] < 0:
+        for sus in reversed(sortedUserScores):
+            if sus[1] > 0:
                 tempScore = userScores[curUidStr] + sus[1]
-                if tempScore >= 0: # 完成结算
-                    settleMsg.append({"outlayUserId":currentSettleUid,"receiveUserId":int(sus[0]),"score":abs(userScores[curUidStr])})
-                    userScores[curUidStr]=0
-                    userScores[sus[0]]=tempScore
+                if tempScore >= 0:  # 完成结算
+                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(sus[0]), "score": abs(userScores[curUidStr])})
+                    userScores[curUidStr] = 0
+                    userScores[sus[0]] = tempScore
                     break
                 else:
-                    settleMsg.append({"outlayUserId":currentSettleUid,"receiveUserId":int(sus[0]),"score":sus[1]})
+                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(sus[0]), "score": sus[1]})
                     userScores[curUidStr] = tempScore
-                    userScores[sus[0]]=0
+                    userScores[sus[0]] = 0
     return settleMsg
+
 
 # 房间结算
 @app.route('/api/roomSettle', methods=['POST'])
@@ -513,79 +589,79 @@ def roomSettle():
     # 获取请求体参数
     params = request.get_json()
     userId = params['userId']
-    roomId= params['roomId']
+    roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
     logInfo(f"individualSettle:{params}")
     # 查询最新流水
-    wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId,latestWasteId=latestWasteId)
+    wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores,wastes)
+    calculateScore(userScores, wastes)
     # 循环结算
     settleInfo = []
-    for i in range(8): # 最多8个用户一个房间
-        sortedUserScores = sorted(userScores.items(), reverse=True, key=lambda kv: (kv[1], kv[0])) 
+    for i in range(8):  # 最多8个用户一个房间
+        sortedUserScores = sorted(userScores.items(), reverse=True, key=lambda kv: (kv[1], kv[0]))
         if sortedUserScores[0][1] == 0:
             break
-        msg = settle(userScores,sortedUserScores[0][0])
+        msg = settle(userScores, sortedUserScores[0][0])
         settleInfo.extend(msg)
-    return make_succ_response({"roomId": roomId,"settleInfo":settleInfo, "wasteList": wasteConvertToJsonList(wastes)})
-    
+    return make_succ_response({"roomId": roomId, "settleInfo": settleInfo, "wasteList": wasteConvertToJsonList(wastes)})
 
 
 # 个人结算
 @app.route('/api/individualSettle', methods=['POST'])
 def individualSettle():
-    
-     # 获取请求体参数
+    # 获取请求体参数
     params = request.get_json()
     userId = params['userId']
-    roomId= params['roomId']
+    roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
     logInfo(f"individualSettle:{params}")
     # 查询最新流水
-    wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId,latestWasteId=latestWasteId)
+    wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores,wastes)
+    calculateScore(userScores, wastes)
     # 结算
 
-    settleMsg = settle(userScores,userId)
+    settleMsg = settle(userScores, userId)
     if len(settleMsg) == 0:
         return make_err_response("不需要结算")
 
-    roomWasteBook = RoomWasteBook(room_id=roomId,user_id=userId,type=4,settle_info=json.dumps(settleMsg),time=datetime.now())
+    roomWasteBook = RoomWasteBook(room_id=roomId, user_id=userId, type=4, settle_info=json.dumps(settleMsg), time=datetime.datetime.now())
     dao.add_waste_to_room(roomWasteBook)
-    
+
     # 因为有插入操作，第二次查询最新流水
-    wastes = getRoomNewRecords(roomId,latestWasteId)
-    notifyRoomChange(roomId,userId,wastes[len(wastes)-1]['id'])  # todo 使用线程或协程
+    wastes = getRoomNewRecords(roomId, latestWasteId)
+    notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])  # todo 使用线程或协程
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
+
 
 # 退出房间
 @app.route('/api/exitRoom', methods=['POST'])
 def exit_room():
-     # 获取请求体参数
+    # 获取请求体参数
     params = request.get_json()
     userId = params['userId']
-    roomId= params['roomId']
+    roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
     logInfo(f"individualSettle:{params}")
 
     # 查询最新流水
-    wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId,latestWasteId=latestWasteId)
+    wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores,wastes)
-    
+    calculateScore(userScores, wastes)
+
     # 验证分数是否为0
-    if userScores[f'{userId}'] == 0: 
+    if userScores[f'{userId}'] == 0:
         # 同意退出 
         removeUserFromRoom(userId, roomId)
-        return make_succ_response({"roomId": roomId,"exit":1})
-    else: #  返回最新数据
-        return make_succ_response({"roomId": roomId,"exit":0,"wasteList": wastes})
-    
+        return make_succ_response({"roomId": roomId, "exit": 1})
+    else:  # 返回最新数据
+        return make_succ_response({"roomId": roomId, "exit": 0, "wasteList": wastes})
+
+
 # 查询房间历史
 @app.route('/api/roomHistory', methods=['POST'])
 def roomHistory():
@@ -597,8 +673,10 @@ def roomHistory():
     historys = dao.query_history_rooms_by_uid(userId)
     historyList = []
     for h in historys:
-        historyList.append({'id':h.id,'roomId':h.room_id,'roomName':h.room_name,'settleAmount':h.settle_amount,'time':h.time.strftime('%Y-%m-%dT%H:%M:%S')})
+        historyList.append(
+            {'id': h.id, 'roomId': h.room_id, 'roomName': h.room_name, 'settleAmount': h.settle_amount, 'time': h.time.strftime('%Y-%m-%dT%H:%M:%S')})
     return make_succ_response(historyList)
+
 
 # 查询个人的对战统计情况 todo 数据是否可以合到其它的接口
 @app.route('/api/getAchievement', methods=['POST'])

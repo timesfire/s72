@@ -92,6 +92,18 @@ def query_using_roombyid(id):
         logger.info("query_roombyid errorMsg= {} ".format(e))
         return None
 
+def query_using_room_by_usetime(time):
+    """
+    查询待关闭的房间
+    :param id: Room的ID
+    :return: Room实体
+    """
+    try:
+        return Room.query.filter(Room.status == 1,Room.use_at<time).all()
+    except OperationalError as e:
+        logger.info("query_roombyid errorMsg= {} ".format(e))
+        return None
+
 
 def get_empty_room_and_update_status():
     """
@@ -103,6 +115,7 @@ def get_empty_room_and_update_status():
         room = Room.query.filter(Room.status == 0).with_for_update().first()
         if room is not None:
             room.status = 1
+            room.use_at = datetime.now()
             db.session.flush()
             db.session.commit()
         return room
@@ -150,9 +163,6 @@ def updateUserLatestRoomId(userId, roomId):
         db.session.commit()
     except OperationalError as e:
         logger.info("insert_user errorMsg= {} ".format(e))
-
-
-
 # -------------user-----
 
 def insert_user(user):
@@ -251,19 +261,38 @@ def add_user_to_room(uid, roomId):
         logger.info("add_user_to_room errorMsg= {} ".format(e))
 
 
-def rm_user_from_room(uid, roomId):
+def autoReleaseRoom(roomId,userScores):
     try:
-        room = query_using_roombyid(roomId)
-        if room is None:
-            logger.info("rm_user_from_room 查询roomId:{} 为 None".format(roomId))
-            return
-        if room.user_ids.__contains__(uid):
-            room.user_ids.remove(uid)
-            flag_modified(room, "user_ids")
-            db.session.flush()
-            db.session.commit()
+        roomMembers = RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId, RoomMemberInfo.status == 1).all()
+        if roomMembers is not None:
+            for member in roomMembers:
+                user = User.query.filter(User.id == member.user_id).first()
+                if user is not None:
+                    user.latest_room_id = 0
+                member.status = 0
+                member.settle_amount = userScores.get(f'{member.user_id}',0)
+        room = Room.query.filter(Room.id == roomId).first()
+        if room is not None:
+            room.status = 2
+        db.session.flush()
+        db.session.commit()
     except OperationalError as e:
-        logger.info("rm_user_from_room errorMsg= {} ".format(e))
+        logger.info("autoReleaseRoom errorMsg= {} ".format(e))
+        return None
+
+# def rm_user_from_room(uid, roomId):
+#     try:
+#         room = query_using_roombyid(roomId)
+#         if room is None:
+#             logger.info("rm_user_from_room 查询roomId:{} 为 None".format(roomId))
+#             return
+#         if room.user_ids.__contains__(uid):
+#             room.user_ids.remove(uid)
+#             flag_modified(room, "user_ids")
+#             db.session.flush()
+#             db.session.commit()
+#     except OperationalError as e:
+#         logger.info("rm_user_from_room errorMsg= {} ".format(e))
 
 
 # -------------room waste book-----
@@ -286,6 +315,20 @@ def add_all_wastes_to_room(roomWasteList):
 def get_wastes_from_room_by_latestid(roomId:int,latestWasteId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.id>latestWasteId).order_by(RoomWasteBook.id).all()
+    except OperationalError as e:
+        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+
+# 查询房间的最后一条流水
+def get_latest_wastes_from_room(roomId:int):
+    try:
+        return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId).order_by(RoomWasteBook.id.desc()).first()
+    except OperationalError as e:
+        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+
+# 查询房间的支付流水
+def get_outlay_wastes_from_room(roomId:int):
+    try:
+        return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.type==1).all()
     except OperationalError as e:
         logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
@@ -315,6 +358,16 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
         db.session.commit()
     except OperationalError as e:
         logger.info("updateIndividualTotalScore errorMsg= {} ".format(e))
+
+
+# 查询房间中的人员
+def query_users_in_room(roomId, status=None):
+    try:
+        if status is None:
+            return RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId).all()
+        return RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId, RoomMemberInfo.status == status).all()
+    except OperationalError as e:
+        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
 # 获取房间历史记录
 def query_history_rooms_by_uid(userId):
