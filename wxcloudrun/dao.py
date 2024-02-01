@@ -274,6 +274,7 @@ def autoReleaseRoom(roomId,userScores):
         room = Room.query.filter(Room.id == roomId).first()
         if room is not None:
             room.status = 2
+            room.close_at = datetime.now()
         db.session.flush()
         db.session.commit()
     except OperationalError as e:

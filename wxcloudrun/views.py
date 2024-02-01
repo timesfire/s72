@@ -321,7 +321,10 @@ def getCacheRoom():
 
 
 def createRoom(status):
-    room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[])
+    if status == 1:
+        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(),use_at=datetime.datetime.now(), user_ids=[])
+    else:
+        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[])
     insert_room(room)
     qrcodeUrl = getQrCode(room.id, room.name)
     update_room_qr_byid(room.id, qrcodeUrl)
@@ -338,7 +341,7 @@ def batchCreateRoom():
 
 def getQrCode(roomId, roomName):
     qrImg = requests.post(url="http://api.weixin.qq.com/wxa/getwxacodeunlimit",
-                          json={"page": "pages/index/index", "scene": "a=1", "width": 300, "check_path": False})
+                          json={"page": "pages/index/index", "scene": "roomId=" + roomId, "width": 300, "check_path": False})
     # print(qrImg.text)
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
@@ -456,8 +459,8 @@ def get_qrcode():
     :return: 获取分享二维码
     """
 
-    roomId = "1"
-    roomName = "XGF"
+    roomId = "11"
+    roomName = "OAI"
 
     return make_succ_response(getQrCode(roomId, roomName))
 
@@ -496,7 +499,7 @@ def wasteConvertToJsonList(wastes):
         wasteList.append(
             {"id": w.id, "roomId": w.room_id, "outlayUserId": w.outlay_user_id, "receiveUserId": w.receive_user_id, "score": w.score, "type": w.type,
              "userId": w.user_id, "userNickname": w.user_nickname, "userAvatarUrl": w.user_avatar_url, "settleInfo": w.settle_info, "msg": w.msg,
-             "time": w.time.strftime('%Y-%m-%d %H:%M:%S')})
+             "time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
     print(wasteList)
     return wasteList
 
