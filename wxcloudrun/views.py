@@ -32,7 +32,8 @@ scheduler.init_app(app)
 scheduler.start()
 # 定时任务 = end =
 
-words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+# words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+words = "12356789"
 roomMap = {}
 
 @sock.route('/wsx')
@@ -488,7 +489,7 @@ def get_qrcode():
 
 def randomRoomName():
     terms = ''
-    for _ in range(3):
+    for _ in range(5):
         terms = terms + str(random.sample(words, 1)[0])
     return terms
 
