@@ -342,7 +342,7 @@ def batchCreateRoom():
 
 def getQrCode(roomId, roomName):
     qrImg = requests.post(url="http://api.weixin.qq.com/wxa/getwxacodeunlimit",
-                          json={"page": "pages/index/index", "scene": "roomId=" + roomId, "width": 300, "check_path": False})
+                          json={"page": "pages/index/index", "scene": f"roomId={roomId}", "width": 300, "check_path": False})
     # print(qrImg.text)
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
