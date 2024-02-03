@@ -156,8 +156,14 @@ def logInfo(msg):
     app.logger.warn(msg)
 
 
+def logWarn(msg):
+    app.logger.warn(msg)
+
+
 @app.route('/')
 def index():
+    dao.query_using_room_by_usetime(datetime.datetime.now())
+    logWarn(f'index  {threading.current_thread().name}')
     """
     :return: 返回index页面
     """
