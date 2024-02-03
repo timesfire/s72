@@ -36,6 +36,7 @@ scheduler.start()
 words = "12356789"
 roomMap = {}
 
+
 @sock.route('/wsx')
 def wsx(ws):
     # The ws object has the following methods:
@@ -73,6 +74,7 @@ def wsx(ws):
             if ws.connected:
                 ws.close()
             roomMap[roomId].remove(ws)
+
 
 @app.route('/testNotify')
 def testNotify():
@@ -114,9 +116,10 @@ def notifyRoomChange(roomId, userId, latestWasteId):
 
 # 清理房间
 @app.route('/testclear')
-def testclear():    
+def testclear():
     clearRoom()
     return make_succ_empty_response()
+
 
 def clearRoom():
     logInfo(f'clearRoom - {threading.current_thread().name}')
@@ -146,9 +149,9 @@ def clearRoom():
             logInfo(f'{r.id} -- {r.name}---end--')
     
 
-
 def logInfo(msg):
     app.logger.warn(msg)
+
 
 @app.route('/')
 def index():
