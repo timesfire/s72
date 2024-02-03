@@ -21,11 +21,11 @@ from flask_apscheduler import APScheduler
 scheduler = APScheduler()
 
 
-@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', hours=1)
+@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', hours=3)
 def clearTask():
-    logInfo(f'开始clear  {threading.current_thread()}')
+    logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
     clearRoom()
-    logInfo(f'结束clear  {threading.current_thread()}')
+    logInfo(f'定时任务-结束clear  {threading.current_thread().name}')
 
 
 scheduler.init_app(app)
@@ -119,21 +119,18 @@ def testclear():
     return make_succ_empty_response()
 
 def clearRoom():
-    logInfo(f'clearRoom {threading.current_thread()}')
+    logInfo(f'clearRoom - {threading.current_thread().name}')
     # 查询使用时长 > 5小时的 在使用中的房间
-    flagTime = datetime.datetime.now() - datetime.timedelta(hours=1)
-    logInfo(f'flagTime:{flagTime}')
+    flagTime = datetime.datetime.now() - datetime.timedelta(hours=5)
     rooms = dao.query_using_room_by_usetime(flagTime)
-    logInfo(f'rooms:{len(rooms)}')
+    logInfo(f'flagTime:{flagTime} - rooms:{len(rooms)}')
     for r in rooms:
-        logInfo(f'开始清理房间:{r.id} :{r.name}---start--')
         latestWaste = dao.get_latest_wastes_from_room(r.id)
+        if latestWaste is not None:
+            logInfo(f'开始清理房间 roomId:{r.id} -- name:{r.name} -- latestWasteTime:{latestWaste.time} -start--')
+        else:
+            logInfo(f'开始清理房间 roomId:{r.id} -- name:{r.name} -- latestWasteTime:null -start--')
         if latestWaste is None or latestWaste.time < flagTime:
-            logInfo(f'lastwastTime:{latestWaste}')
-            if latestWaste is not None:
-                cur = datetime.datetime.now() - datetime.timedelta(days=23)
-                logInfo(f'时间{latestWaste.time}比较:{latestWaste.time < flagTime}')
-                logInfo(f'时间{cur}比较:{latestWaste.time < cur}')
             # 开始清理房间  
             userScores = {}
             if latestWaste is not None:  # 存在最后一条数据才可能存在更多流水
@@ -144,9 +141,9 @@ def clearRoom():
                         userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score
             logInfo(f'userScores:{userScores}')
             dao.autoReleaseRoom(r.id, userScores)
-            logInfo(f'{r.id} :{r.name}---end--')
             # 移除 websocket 连接
             releaseRoomConnect(r.id)
+            logInfo(f'{r.id} -- {r.name}---end--')
     
 
 
