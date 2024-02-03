@@ -21,7 +21,7 @@ from flask_apscheduler import APScheduler
 scheduler = APScheduler()
 
 
-@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', hours=3)
+@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', hours=2)
 def clearTask():
     logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
     clearRoom()
@@ -126,6 +126,9 @@ def clearRoom():
     # 查询使用时长 > 5小时的 在使用中的房间
     flagTime = datetime.datetime.now() - datetime.timedelta(hours=5)
     rooms = dao.query_using_room_by_usetime(flagTime)
+    if rooms is None:
+        logInfo(f'flagTime:{flagTime} - rooms:null')
+        return
     logInfo(f'flagTime:{flagTime} - rooms:{len(rooms)}')
     for r in rooms:
         latestWaste = dao.get_latest_wastes_from_room(r.id)
