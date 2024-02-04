@@ -7,7 +7,7 @@ import requests
 from flask import render_template, request
 
 from run import app
-from wxcloudrun import dao, sock
+from wxcloudrun import dao, sock, db
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid, insert_room, update_room_qr_byid, \
     query_user_by_openid, insert_user, update_user_by_id
 from wxcloudrun.model import Counters, Room, User, RoomWasteBook
@@ -23,9 +23,10 @@ scheduler = APScheduler()
 
 @scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', minutes=100)
 def clearTask():
-    logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
-    clearRoom()
-    logInfo(f'定时任务-结束clear  {threading.current_thread().name}')
+    with db.app.app_context():
+        logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
+        clearRoom()
+        logInfo(f'定时任务-结束clear  {threading.current_thread().name}')
 
 
 scheduler.init_app(app)

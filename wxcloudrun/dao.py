@@ -99,7 +99,7 @@ def query_using_room_by_usetime(time):
     :return: Room实体
     """
     try:
-        logger.warning(db.session)
+        logger.warning(str(db.session))
         return Room.query.filter(Room.status == 1,Room.use_at<time).all()
     except OperationalError as e:
         logger.warning("query_roombyid errorMsg= {} ".format(e))
