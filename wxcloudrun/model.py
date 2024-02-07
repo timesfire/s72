@@ -29,6 +29,7 @@ class Room(db.Model):
     use_at = db.Column('use_at', db.TIMESTAMP, nullable=True)
     close_at = db.Column('close_at', db.TIMESTAMP, nullable=True)
     user_ids = db.Column("user_ids", db.JSON)
+    myapp = db.Column(db.String(10))
 
 
 
@@ -42,6 +43,8 @@ class User(db.Model):
     avatar_url = db.Column(db.String(200))
     avatar_fileid = db.Column(db.String(200))
     latest_room_id = db.Column("latest_room_id", db.Integer)
+    myapp = db.Column(db.String(10))
+    time = db.Column('time', db.TIMESTAMP, nullable=False, default=datetime.now())
 
 class RoomWasteBook(db.Model):
     # 房间流水表

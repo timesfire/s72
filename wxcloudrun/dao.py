@@ -106,14 +106,14 @@ def query_using_room_by_usetime(time):
         return None
 
 
-def get_empty_room_and_update_status():
+def get_empty_room_and_update_status(myapp):
     """
     根据status 查询 Room 列表
     :param status: room 的 status
     :return: Room实体列表
     """
     try:
-        room = Room.query.filter(Room.status == 0).with_for_update().first()
+        room = Room.query.filter(Room.status == 0,Room.myapp == myapp).with_for_update().first()
         if room is not None:
             room.status = 1
             room.use_at = datetime.now()
@@ -179,14 +179,14 @@ def insert_user(user):
 
 
 
-def query_user_by_openid(openId):
+def query_user_by_openid(openId,myapp):
     """
     根据openid查询User实体
     :param openId: User的openId
     :return: User实体
     """
     try:
-        return User.query.filter(User.wx_openid == openId).first()
+        return User.query.filter(User.wx_openid == openId,User.myapp==myapp).first()
     except OperationalError as e:
         logger.info("query_user_by_openid errorMsg= {} ".format(e))
         return None

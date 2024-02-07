@@ -249,7 +249,10 @@ def open_room():
     :return: 房间信息xxx
     """
     userId = int(request.values.get("userId"))
-    room = getCacheRoom()
+    myapp = request.values.get("myapp")
+    if myapp is None:
+        myapp = "100"
+    room = getCacheRoom(myapp)
     user = dao.query_user_by_id(userId)
     addUserToRoom(user, room)
     return getRoomDetail(room)
@@ -324,20 +327,20 @@ def enter_room():
     return make_err_response("已退出房间或房间已关闭")
 
 
-def getCacheRoom():
-    room = dao.get_empty_room_and_update_status()
+def getCacheRoom(myapp):
+    room = dao.get_empty_room_and_update_status(myapp)
     if room is None:
-        room = createRoom(1)
+        room = createRoom(myapp,1)
     return room
 
 
-def createRoom(status):
+def createRoom(myapp,status):
     if status == 1:
-        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(),use_at=datetime.datetime.now(), user_ids=[])
+        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(),use_at=datetime.datetime.now(), user_ids=[],myapp=myapp)
     else:
-        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[])
+        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[],myapp=myapp)
     insert_room(room)
-    qrcodeUrl = getQrCode(room.id, room.name)
+    qrcodeUrl = getQrCode(myapp,room.id, room.name)
     update_room_qr_byid(room.id, qrcodeUrl)
     return room
 
@@ -347,19 +350,33 @@ def createRoom(status):
 @app.route('/api/batchCreateRoom', methods=['POST'])
 def batchCreateRoom():
     for i in range(1, 100):
-        createRoom(0)
+        createRoom("100",0)
 
 
-def getQrCode(roomId, roomName):
-    qrImg = requests.post(url="http://api.weixin.qq.com/wxa/getwxacodeunlimit",
-                          json={"page": "pages/index/index", "scene": f"roomId={roomId}", "width": 300, "check_path": False})
+def appSecret(myapp):
+    if myapp == "100":
+        return "35c80409f56b5ec27b8867176426657b"
+    else:
+        return "0d8259d1bc013a32c605a45f8e8f104f"
+
+
+def appId(myapp):
+    if myapp == "100":
+        return "wx6f6f3e6f46e9d199"
+    else:
+        return "wxc9afbf53652df0ec"
+
+def getQrCode(myapp,roomId, roomName):
+
+    qrImg = requests.post(url=f"http://api.weixin.qq.com/wxa/getwxacodeunlimit?from_appid={appId(myapp)}",
+                          json={"page": "pages/index/index", "scene": f"roomId={roomId}&myapp={myapp}", "width": 300, "check_path": False})
     # print(qrImg.text)
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
     print("xin------------")
     # 1、获取上传地址
     tempFilePath = f"qrcode/{roomName}-{roomId}.png"
-    uploadInfo = requests.post(url="http://api.weixin.qq.com/tcb/uploadfile", json={
+    uploadInfo = requests.post(url=f"http://api.weixin.qq.com/tcb/uploadfile", json={
         "env": "prod-3gvgzn5xf978a9ac",
         "path": tempFilePath
     })
@@ -373,7 +390,7 @@ def getQrCode(roomId, roomName):
     requests.post(uploadInfoJson["url"], data=data, files=files)
 
     # 3、获取下载地址
-    downloadResp = requests.post(url="http://api.weixin.qq.com/tcb/batchdownloadfile", json={
+    downloadResp = requests.post(url=f"http://api.weixin.qq.com/tcb/batchdownloadfile", json={
         "env": "prod-3gvgzn5xf978a9ac",
         "file_list": [
             {
@@ -389,14 +406,23 @@ def getQrCode(roomId, roomName):
 @app.route('/api/login', methods=['POST'])
 def login():
     # 获取请求体参数
-    APPID = "wx6f6f3e6f46e9d199"
-    SECRET = "35c80409f56b5ec27b8867176426657b"
+    # APPID = "wx6f6f3e6f46e9d199"
+    # SECRET = "35c80409f56b5ec27b8867176426657b"
 
     # 获取请求体参数
     params = request.get_json()
 
     code = params.get("code")
     userId = params.get("userId")
+    myapp = params.get("myapp")
+    if myapp is None:
+        myapp = "100"
+    if myapp == "100":
+        APPID = "wx6f6f3e6f46e9d199"
+        SECRET = "35c80409f56b5ec27b8867176426657b"
+    else:
+        APPID = "wxc9afbf53652df0ec"
+        SECRET = "0d8259d1bc013a32c605a45f8e8f104f"
 
     if userId is not None:
         user = dao.query_user_by_id(userId)
@@ -421,10 +447,11 @@ def login():
         if jsonData.get('openid') is not None:
             openId = jsonData['openid']
             # 返回用户信息
-            user = query_user_by_openid(openId)
+            user = query_user_by_openid(openId,myapp)
             isNewUser = 0
             if user is None:
-                user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'), latest_room_id=0)
+                user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'), latest_room_id=0,
+                            myapp=myapp,time=datetime.datetime.now())
                 insert_user(user)
                 isNewUser = 1  # 新用户
             return make_succ_response({"id": user.id, "nickname": user.nickname, "avatar_url": user.avatar_url, "isNewUser": isNewUser})
@@ -470,10 +497,10 @@ def get_qrcode():
     :return: 获取分享二维码
     """
 
-    roomId = "11"
+    roomId = "396"
     roomName = "OAI"
 
-    return make_succ_response(getQrCode(roomId, roomName))
+    return make_succ_response(getQrCode('100',roomId, roomName))
 
     # ROOT_PATH = os.path.dirname(__file__)
     # new_file_name = os.path.join(f"{ROOT_PATH}/static/images","xx.png")
