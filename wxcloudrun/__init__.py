@@ -18,7 +18,7 @@ sock = Sock(app)
 # socketio = SocketIO(app)
 
 # 设定数据库链接
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://{}:{}@{}/flask_demo'.format(config.username, config.password,
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://{}:{}@{}/flask_demo?charset=utf8mb4'.format(config.username, config.password,
                                                                             config.db_address)
 app.config['SQLALCHEMY_POOL_SIZE'] = 50
 app.config['SQLALCHEMY_POOL_TIMEOUT'] = 10

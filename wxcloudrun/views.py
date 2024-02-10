@@ -554,6 +554,14 @@ def refreshRoom():
     return make_succ_response(getRoomNewRecords(roomId, latestWasteId))
 
 
+def is_float(s):
+    try:  # 如果能运行float(s)语句，返回True（字符串s是浮点数）
+        float(s)
+        return True
+    except ValueError:  # ValueError为Python的一种标准异常，表示"传入无效的参数"
+        pass  # 如果引发了ValueError这种异常，不做任何事情（pass：不做任何事情，一般用做占位语句）
+    return False
+
 # 支付分数
 @app.route('/api/outlayScore', methods=['POST'])
 def outlayScore():
@@ -565,8 +573,11 @@ def outlayScore():
     latestWasteId = params['latestWasteId']
     wastes = []
     for ruid in receiveInfo:
-        wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid), score=receiveInfo[ruid], type=1,
-                                    time=datetime.datetime.now()))
+        if is_float(receiveInfo[ruid]):  # 兼容前端未做的校验
+            wastes.append(RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=int(ruid), score=receiveInfo[ruid], type=1,
+                                        time=datetime.datetime.now()))
+    if len(wastes) == 0: # 没有数据，兼容异常情况
+        return make_err_response("未输入有效支付分")
     dao.add_all_wastes_to_room(wastes)
     # 返回最新的房间流水，由前端进行计算
     wastes = getRoomNewRecords(roomId, latestWasteId)
