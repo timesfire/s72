@@ -25,7 +25,7 @@ scheduler = APScheduler()
 def clearTask():
     with db.app.app_context():
         logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
-        clearRoom()
+        # clearRoom()
         logInfo(f'定时任务-结束clear  {threading.current_thread().name}')
 
 
@@ -68,7 +68,6 @@ def wsx(ws):
         roomMap[roomId].remove(ws)
         if len(roomMap[roomId]) == 0:
             del roomMap[roomId]
-        print(roomMap)
     except:
         print("客户端异常断开")
         if roomId in roomMap:
@@ -84,7 +83,7 @@ def testNotify():
         wsList = roomMap.get(roomId)
         if wsList is not None:
             for w in wsList:
-                logInfo(w)
+                # logInfo(w)
                 if w.connected:
                     logInfo("send info")
                     w.send({'ll': 100, 'uu': 200})
@@ -224,7 +223,7 @@ def get_count():
 
 
 def addUserToRoom(user, room):
-    logInfo(f'addUserToRoom(userId:{user.id},roomId:{room.id})')
+    # logInfo(f'addUserToRoom(userId:{user.id},roomId:{room.id})')
     dao.add_user_to_room(user.id, room.id)
     dao.updateUserLatestRoomId(user.id, room.id)
     # 插入房间流水记录
@@ -238,7 +237,6 @@ def addUserToRoom(user, room):
 def getRoomDetail(room):
     wastes = getRoomNewRecords(room.id, 0)
     data = {"roomId": room.id, "roomName": room.name, "shareQrUrl": room.share_qr, "wasteList": wastes}
-    app.logger.info(data)
     return make_succ_response(data)
 
 
@@ -286,8 +284,7 @@ def enter_room():
     roomIdStr = request.values.get("roomId")
     user = dao.query_user_by_id(userId)
     latestRoomId = user.latest_room_id
-    app.logger.info(f'api:enterRoom -- userId:{userId} -- newRoomId:{roomIdStr} -- oldRoomId:{latestRoomId}')
-
+    logWarn(f'api:enterRoom -- userId:{userId} -- newRoomId:{roomIdStr} -- oldRoomId:{latestRoomId}')
     if roomIdStr is not None and len(roomIdStr) > 0 and roomIdStr != 'undefined':  # 存在新的 room
         newRoomId = int(roomIdStr)
         newRoom = dao.query_using_roombyid(newRoomId)
@@ -370,10 +367,10 @@ def getQrCode(myapp,roomId, roomName):
 
     qrImg = requests.post(url=f"http://api.weixin.qq.com/wxa/getwxacodeunlimit?from_appid={appId(myapp)}",
                           json={"page": "pages/index/index", "scene": f"roomId={roomId}&myapp={myapp}", "width": 300, "check_path": False})
-    # print(qrImg.text)
+
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
-    print("xin------------")
+    print("---------getQrCode------------")
     # 1、获取上传地址
     tempFilePath = f"qrcode/{roomName}-{roomId}.png"
     uploadInfo = requests.post(url=f"http://api.weixin.qq.com/tcb/uploadfile", json={
@@ -400,6 +397,8 @@ def getQrCode(myapp,roomId, roomName):
         ]
     })
     downloadUrl = json.loads(downloadResp.content)['file_list'][0]['download_url']
+    # if uploadInfoJson.get('errcode') == 0:
+    #     return uploadInfoJson.get('file_id')
     return downloadUrl
 
 
@@ -411,7 +410,7 @@ def login():
 
     # 获取请求体参数
     params = request.get_json()
-
+    logWarn(f'login:{params}')
     code = params.get("code")
     userId = params.get("userId")
     myapp = params.get("myapp")
@@ -442,7 +441,6 @@ def login():
         # "errmsg":"xxxxx"
         # }
         #
-        print(resp.text)
         jsonData = resp.json()
         if jsonData.get('openid') is not None:
             openId = jsonData['openid']
@@ -466,7 +464,7 @@ def login():
 def updateProfile():
     # 获取请求体参数
     params = request.get_json()
-    logInfo(params)
+    logInfo(f'updateProfile:{params}')
     userid = params['userid']
     nickname = params['nickname']
     avatarUrl = None
@@ -507,12 +505,12 @@ def get_qrcode():
     #
     # with open('new_imag.png','wb') as f:
     #     f.write(resp.content)
-    # print(resp.text)
+
 
     # img_stream = str(base64.b64encode(resp.content),'utf-8')
-    # print(img_stream)
 
-    # print(resp.text)
+
+
     # img = Image.new('RGB', (100, 100), color=(255, 0, 0))
     # img_io = BytesIO()
     # img.raw.save(img_io, 'JPEG', quality=70)
@@ -538,7 +536,6 @@ def wasteConvertToJsonList(wastes):
             {"id": w.id, "roomId": w.room_id, "outlayUserId": w.outlay_user_id, "receiveUserId": w.receive_user_id, "score": w.score, "type": w.type,
              "userId": w.user_id, "userNickname": w.user_nickname, "userAvatarUrl": w.user_avatar_url, "settleInfo": w.settle_info, "msg": w.msg,
              "time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
-    print(wasteList)
     return wasteList
 
 
@@ -633,7 +630,7 @@ def roomSettle():
     roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
-    logInfo(f"individualSettle:{params}")
+    logInfo(f"roomSettle:{params}")
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
@@ -687,7 +684,7 @@ def exit_room():
     roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
-    logInfo(f"individualSettle:{params}")
+    logInfo(f"exit_room:{params}")
 
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
@@ -709,7 +706,6 @@ def roomHistory():
     # 获取请求体参数
     params = request.get_json()
     logInfo(f"roomHistory:{params}")
-
     userId = params['userId']
     historys = dao.query_history_rooms_by_uid(userId)
     historyList = []
@@ -723,7 +719,7 @@ def roomHistory():
 @app.route('/api/getAchievement', methods=['POST'])
 def getAchievement():
     params = request.get_json()
-    logInfo(f"roomHistory:{params}")
+    # logWarn(f'getAchievement:{json.dumps(params)}')
     userId = params['userId']
     res = dao.query_achievement_by_uid(userId)
     return make_succ_response(res)

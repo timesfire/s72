@@ -21,7 +21,7 @@ def query_counterbyid(id):
     try:
         return Counters.query.filter(Counters.id == id).first()
     except OperationalError as e:
-        logger.info("query_counterbyid errorMsg= {} ".format(e))
+        logger.warning("query_counterbyid errorMsg= {} ".format(e))
         return None
 
 
@@ -37,7 +37,7 @@ def delete_counterbyid(id):
         db.session.delete(counter)
         db.session.commit()
     except OperationalError as e:
-        logger.info("delete_counterbyid errorMsg= {} ".format(e))
+        logger.warning("delete_counterbyid errorMsg= {} ".format(e))
 
 
 def insert_counter(counter):
@@ -49,7 +49,7 @@ def insert_counter(counter):
         db.session.add(counter)
         db.session.commit()
     except OperationalError as e:
-        logger.info("insert_counter errorMsg= {} ".format(e))
+        logger.warning("insert_counter errorMsg= {} ".format(e))
 
 
 def update_counterbyid(counter):
@@ -64,7 +64,7 @@ def update_counterbyid(counter):
         db.session.flush()
         db.session.commit()
     except OperationalError as e:
-        logger.info("update_counterbyid errorMsg= {} ".format(e))
+        logger.warning("update_counterbyid errorMsg= {} ".format(e))
 
 # ----------- room---------
 def query_roombyid(id):
@@ -76,7 +76,7 @@ def query_roombyid(id):
     try:
         return Room.query.filter(Room.id == id).first()
     except OperationalError as e:
-        logger.info("query_roombyid errorMsg= {} ".format(e))
+        logger.warning("query_roombyid errorMsg= {} ".format(e))
         return None
 
 
@@ -89,7 +89,7 @@ def query_using_roombyid(id):
     try:
         return Room.query.filter(Room.id == id, Room.status == 1).first()
     except OperationalError as e:
-        logger.info("query_roombyid errorMsg= {} ".format(e))
+        logger.warning("query_using_roombyid errorMsg= {} ".format(e))
         return None
 
 def query_using_room_by_usetime(time):
@@ -99,10 +99,9 @@ def query_using_room_by_usetime(time):
     :return: Room实体
     """
     try:
-        logger.warning(str(db.session))
         return Room.query.filter(Room.status == 1,Room.use_at<time).all()
     except OperationalError as e:
-        logger.warning("query_roombyid errorMsg= {} ".format(e))
+        logger.warning("query_using_room_by_usetime errorMsg= {} ".format(e))
         return None
 
 
@@ -121,7 +120,7 @@ def get_empty_room_and_update_status(myapp):
             db.session.commit()
         return room
     except OperationalError as e:
-        logger.info("get_empty_room errorMsg= {} ".format(e))
+        logger.warning("get_empty_room_and_update_status errorMsg= {} ".format(e))
         return None
 
 def insert_room(room):
@@ -133,7 +132,7 @@ def insert_room(room):
         db.session.add(room)
         db.session.commit()
     except OperationalError as e:
-        logger.info("insert_room errorMsg= {} ".format(e))
+        logger.warning("insert_room errorMsg= {} ".format(e))
         print("insert_room errorMsg= {} ".format(e))
 
 
@@ -150,20 +149,20 @@ def update_room_qr_byid(roomId, qr):
         db.session.flush()
         db.session.commit()
     except OperationalError as e:
-        logger.info("update_counterbyid errorMsg= {} ".format(e))
+        logger.warning("update_room_qr_byid errorMsg= {} ".format(e))
 
 
 def updateUserLatestRoomId(userId, roomId):
     try:
         user = query_user_by_id(userId)
         if user is None:
-            logger.info("updateUserLatestRoomId 错误：id: {} 查询到到 user 为 None".format(userId))
+            logger.warning("updateUserLatestRoomId 错误：id: {} 查询到到 user 为 None".format(userId))
             return
         user.latest_room_id = roomId
         db.session.flush()
         db.session.commit()
     except OperationalError as e:
-        logger.info("insert_user errorMsg= {} ".format(e))
+        logger.warning("updateUserLatestRoomId errorMsg= {} ".format(e))
 # -------------user-----
 
 def insert_user(user):
@@ -175,7 +174,7 @@ def insert_user(user):
         db.session.add(user)
         db.session.commit()
     except OperationalError as e:
-        logger.info("insert_user errorMsg= {} ".format(e))
+        logger.warning("insert_user errorMsg= {} ".format(e))
 
 
 
@@ -188,7 +187,7 @@ def query_user_by_openid(openId,myapp):
     try:
         return User.query.filter(User.wx_openid == openId,User.myapp==myapp).first()
     except OperationalError as e:
-        logger.info("query_user_by_openid errorMsg= {} ".format(e))
+        logger.warning("query_user_by_openid errorMsg= {} ".format(e))
         return None
 
 def query_user_by_id(id):
@@ -200,7 +199,7 @@ def query_user_by_id(id):
     try:
         return User.query.filter(User.id == id).first()
     except OperationalError as e:
-        logger.info("query_user_by_id errorMsg= {} ".format(e))
+        logger.warning("query_user_by_id errorMsg= {} ".format(e))
         return None
 
 def query_users_by_ids(ids):
@@ -212,7 +211,7 @@ def query_users_by_ids(ids):
     try:
         return User.query.filter(User.id.in_(ids)).all()
     except OperationalError as e:
-        logger.info("query_users_by_ids errorMsg= {} ".format(e))
+        logger.warning("query_users_by_ids errorMsg= {} ".format(e))
         return None
 
 def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
@@ -234,7 +233,7 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
         db.session.commit()
         return user
     except OperationalError as e:
-        logger.info("update_user_by_id errorMsg= {} ".format(e))
+        logger.warning("update_user_by_id errorMsg= {} ".format(e))
         return None
 
 
@@ -259,7 +258,7 @@ def add_user_to_room(uid, roomId):
         #     db.session.flush()
         #     db.session.commit()
     except OperationalError as e:
-        logger.info("add_user_to_room errorMsg= {} ".format(e))
+        logger.warning("add_user_to_room errorMsg= {} ".format(e))
 
 
 def autoReleaseRoom(roomId,userScores):
@@ -279,7 +278,7 @@ def autoReleaseRoom(roomId,userScores):
         db.session.flush()
         db.session.commit()
     except OperationalError as e:
-        logger.info("autoReleaseRoom errorMsg= {} ".format(e))
+        logger.warning("autoReleaseRoom errorMsg= {} ".format(e))
         return None
 
 # def rm_user_from_room(uid, roomId):
@@ -304,35 +303,35 @@ def add_waste_to_room(roomWasteBook):
         db.session.add(roomWasteBook)
         db.session.commit()
     except OperationalError as e:
-        logger.info("add_waste_to_room errorMsg= {} ".format(e))
+        logger.warning("add_waste_to_room errorMsg= {} ".format(e))
 # 批量添加
 def add_all_wastes_to_room(roomWasteList):
     try:
         db.session.add_all(roomWasteList)
         db.session.commit()
     except OperationalError as e:
-        logger.info("add_all_wastes_to_room errorMsg= {} ".format(e))
+        logger.warning("add_all_wastes_to_room errorMsg= {} ".format(e))
 
 # 根据最后记录ID返回最新流水
 def get_wastes_from_room_by_latestid(roomId:int,latestWasteId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.id>latestWasteId).order_by(RoomWasteBook.id).all()
     except OperationalError as e:
-        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+        logger.warning("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
 # 查询房间的最后一条流水
 def get_latest_wastes_from_room(roomId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId).order_by(RoomWasteBook.id.desc()).first()
     except OperationalError as e:
-        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+        logger.warning("get_latest_wastes_from_room errorMsg= {} ".format(e))
 
 # 查询房间的支付流水
 def get_outlay_wastes_from_room(roomId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.type==1).all()
     except OperationalError as e:
-        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+        logger.warning("get_outlay_wastes_from_room errorMsg= {} ".format(e))
 
 # -------------room waste book- end----
 # -------------room_member--start---
@@ -342,13 +341,10 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
         # 创建参数化查询的查询字符串
         sql = text("SELECT COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND receive_user_id = :userId AND room_id = :roomId),0) - COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND outlay_user_id = :userId AND room_id=:roomId),0) AS score")
         # 执行参数化查询
-        logger.warn("sssssss")
         result = db.engine.execute(sql, roomId=latestRoomId, userId=userId)
         curScore = 0
         for r in result: # 只有一条数据 todo 去掉for
             curScore = r[0]
-            logger.warn(f'xxxx {r[0]}')
-        logger.warn(f'xxxxxxxxx:{result.first}')
         # curScore = result['score']
 
         memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id==userId,RoomMemberInfo.room_id==latestRoomId).first()
@@ -359,7 +355,7 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
         db.session.flush()
         db.session.commit()
     except OperationalError as e:
-        logger.info("updateIndividualTotalScore errorMsg= {} ".format(e))
+        logger.warning("rm_user_from_room_and_update_settle_score errorMsg= {} ".format(e))
 
 
 # 查询房间中的人员
@@ -369,14 +365,14 @@ def query_users_in_room(roomId, status=None):
             return RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId).all()
         return RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId, RoomMemberInfo.status == status).all()
     except OperationalError as e:
-        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+        logger.warning("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
 # 获取房间历史记录
 def query_history_rooms_by_uid(userId):
     try:
         return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0).order_by(RoomMemberInfo.time.desc()).all()
     except OperationalError as e:
-        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+        logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
 
 def query_using_roomid_by_uid(uid):
     """
@@ -390,7 +386,7 @@ def query_using_roomid_by_uid(uid):
             return roomMember.room_id
         return None
     except OperationalError as e:
-        logger.info("query_roombyid errorMsg= {} ".format(e))
+        logger.warning("query_using_roomid_by_uid errorMsg= {} ".format(e))
         return None
 
 # 获取个人的成绩
@@ -400,5 +396,5 @@ def query_achievement_by_uid(userId):
         successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.settle_amount>0).count()
         return {"totalCount":totalCount,"successCount":successCount}
     except OperationalError as e:
-        logger.info("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
+        logger.warning("query_achievement_by_uid errorMsg= {} ".format(e))
 
