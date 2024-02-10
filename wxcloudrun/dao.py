@@ -133,7 +133,7 @@ def insert_room(room):
         db.session.commit()
     except OperationalError as e:
         logger.warning("insert_room errorMsg= {} ".format(e))
-        print("insert_room errorMsg= {} ".format(e))
+        # print("insert_room errorMsg= {} ".format(e))
 
 
 def update_room_qr_byid(roomId, qr):
