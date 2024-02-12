@@ -105,12 +105,15 @@ def releaseRoomConnect(roomId):
 
 
 def notifyRoomChange(roomId, userId, latestWasteId):
+    logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
     wsList = roomMap.get(f'{roomId}')
     if wsList is not None:
         for w in wsList:
             if w.connected:
+                logInfo(f'notifyRoomChange-send: {json.dumps({"l": latestWasteId, "u": userId})}')
                 w.send(json.dumps({"l": latestWasteId, "u": userId}))
             else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
+                logInfo(f'notifyRoomChange-断开了-userId:{userId}')
                 wsList.remove(w)
 
 
@@ -346,7 +349,7 @@ def createRoom(myapp,status):
 # todo:remove route
 @app.route('/api/batchCreateRoom', methods=['POST'])
 def batchCreateRoom():
-    for i in range(1, 100):
+    for i in range(1, 500):
         createRoom("100",0)
 
 
