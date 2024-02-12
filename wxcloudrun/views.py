@@ -51,6 +51,7 @@ def wsx(ws):
             ws.send("参数为空，连接断开")
             return
         # 加入房间
+        ws.ownerUserId = userId
         if roomId in roomMap:
             roomMap[roomId].append(ws)
         else:
@@ -66,6 +67,7 @@ def wsx(ws):
             ws.send(data)
         # 退出房间
         roomMap[roomId].remove(ws)
+        # 清空 map 的 key
         if len(roomMap[roomId]) == 0:
             del roomMap[roomId]
     except:
@@ -74,6 +76,9 @@ def wsx(ws):
             if ws.connected:
                 ws.close()
             roomMap[roomId].remove(ws)
+            # 清空 map 的 key
+            if len(roomMap[roomId]) == 0:
+                del roomMap[roomId]
 
 
 @app.route('/testNotify')
@@ -95,6 +100,20 @@ def testNotify():
         logInfo(e)
 
 
+@app.route('/getRoomSocketInfo')
+def getRoomSocketInfo():
+    try:
+        roomId = request.values.get("roomId")
+        wsList = roomMap.get(roomId)
+        wsListInfo = []
+        if wsList is not None:
+            for w in wsList:
+                wsListInfo.append({"userId": w.ownerUserId, "isConnected": w.connected})
+        return make_succ_response(wsListInfo)
+    except Exception as e:
+        logInfo(f'getRoomSocketInfo exception:{e}')
+
+
 def releaseRoomConnect(roomId):
     wsList = roomMap.get(f'{roomId}')
     if wsList is not None:
@@ -105,16 +124,19 @@ def releaseRoomConnect(roomId):
 
 
 def notifyRoomChange(roomId, userId, latestWasteId):
-    logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
-    wsList = roomMap.get(f'{roomId}')
-    if wsList is not None:
-        for w in wsList:
-            if w.connected:
-                logInfo(f'notifyRoomChange-send: {json.dumps({"l": latestWasteId, "u": userId})}')
-                w.send(json.dumps({"l": latestWasteId, "u": userId}))
-            else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
-                logInfo(f'notifyRoomChange-断开了-userId:{userId}')
-                wsList.remove(w)
+    try:
+        logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
+        wsList = roomMap.get(f'{roomId}')
+        if wsList is not None:
+            for w in wsList:
+                if w.connected:
+                    logInfo(f'notifyRoomChange-send: {json.dumps({"l": latestWasteId, "u": userId})}')
+                    w.send(json.dumps({"l": latestWasteId, "u": userId}))
+                else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
+                    logInfo(f'notifyRoomChange-断开了-userId:{userId}')
+                    wsList.remove(w)
+    except Exception as e:
+        logInfo(f'notifyRoomChange exception:{e}')
 
 
 # 清理房间
