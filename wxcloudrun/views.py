@@ -5,6 +5,7 @@ import threading
 
 import requests
 from flask import render_template, request
+from simple_websocket import Server
 
 from run import app
 from wxcloudrun import dao, sock, db
@@ -25,7 +26,7 @@ scheduler = APScheduler()
 def clearTask():
     with db.app.app_context():
         logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
-        # clearRoom()
+        clearRoom()
         logInfo(f'定时任务-结束clear  {threading.current_thread().name}')
 
 
@@ -39,7 +40,7 @@ roomMap = {}
 
 
 @sock.route('/wsx')
-def wsx(ws):
+def wsx(ws: Server):
     # The ws object has the following methods:
     # - ws.send(data)
     # - ws.receive(timeout=None)
@@ -64,7 +65,10 @@ def wsx(ws):
             data = ws.receive()
             if data == 'close':
                 break
-            ws.send(data)
+            elif data == 'ping':
+                ws.send('pong')
+            else:
+                ws.send(data)
         # 退出房间
         roomMap[roomId].remove(ws)
         # 清空 map 的 key
