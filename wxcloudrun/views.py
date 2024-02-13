@@ -105,6 +105,10 @@ def getRoomSocketInfo():
     try:
         roomId = request.values.get("roomId")
         wsList = roomMap.get(roomId)
+        if wsList is not None:
+            logWarn(f'getRoomSocketInfo:wsList len:{len(wsList)}')
+        else:
+            logWarn(f'getRoomSocketInfo:wsList 为 none')
         wsListInfo = []
         if wsList is not None:
             for w in wsList:
