@@ -21,11 +21,11 @@ from flask_apscheduler import APScheduler
 scheduler = APScheduler()
 
 
-@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', minutes=100)
+@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', minutes=120)
 def clearTask():
     with db.app.app_context():
         logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
-        # clearRoom()
+        clearRoom()
         logInfo(f'定时任务-结束clear  {threading.current_thread().name}')
 
 
