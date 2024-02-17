@@ -3,6 +3,7 @@ import json
 import random
 import threading
 
+import gevent
 import requests
 from flask import render_template, request
 from simple_websocket import Server
@@ -22,7 +23,7 @@ from flask_apscheduler import APScheduler
 scheduler = APScheduler()
 
 
-@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', minutes=100)
+@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(seconds=5), id='do_job_2', minutes=120)
 def clearTask():
     with db.app.app_context():
         logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
@@ -107,6 +108,9 @@ def testNotify():
 @app.route('/getRoomSocketInfo')
 def getRoomSocketInfo():
     try:
+        logWarn(f"Current thread ID: {threading.get_ident()}")
+        logWarn(f"Current coroutine: {gevent.getcurrent()}")
+        logWarn(f"roomMap:{roomMap}")
         roomId = request.values.get("roomId")
         wsList = roomMap.get(roomId)
         if wsList is not None:
