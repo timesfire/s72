@@ -47,6 +47,9 @@ def wsx(ws: Server):
     # - ws.receive(timeout=None)
     # - ws.close(reason=None, message=None)
     try:
+        logWarn(f"Current thread ID: {threading.get_ident()}")
+        logWarn(f"Current coroutine: {gevent.getcurrent()}")
+        logWarn(f"roomMap:{roomMap}")
         roomId = request.values.get("roomId")
         userId = request.values.get("userId")
         if roomId is None or userId is None:
