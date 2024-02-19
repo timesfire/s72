@@ -51,50 +51,37 @@ def wsx(ws: Server):
     # - ws.send(data)
     # - ws.receive(timeout=None)
     # - ws.close(reason=None, message=None)
-    logWarn(f"Current thread ID: {threading.get_ident()}")
-
-    logWarn(f"roomMap:{roomMap}")
     roomId = request.values.get("roomId")
     userId = request.values.get("userId")
     if roomId is None or userId is None:
         ws.send("参数为空，连接断开")
+        logWarn("参数为空，连接断开")
         return
     queue = SocketQueue(userId)
     try:
-
         # 加入房间
-        # ws.ownerUserId = userId
         if roomId in roomMap:
             roomMap[roomId].append(queue)
         else:
             roomMap[roomId] = [queue]
-
-        # 清除房间无效连接
-        # for w in roomMap[roomId]:
-        #     if not w.connected:
-        #         roomMap[roomId].remove(w)
         while True:
-            # logWarn(f"Current coroutine: {gevent.getcurrent()}")
             try:
                 item = queue.get(timeout=1)
                 if item is not None:
-                    logWarn(f"send:{item} {datetime.datetime.now()}")
                     ws.send(item)
             except Empty:
                 pass
-            # gevent.sleep(10)
             data = ws.receive(timeout=0)
             if data is not None:  # 收
                 if data == 'close':
                     logWarn(f"receive:close:{datetime.datetime.now()}")
-                    ws.close()
                     break
                 elif data == 'ping':
                     ws.send('pong')
                 else:
                     ws.send(data)
     except Exception as e :
-        logInfo(f"客户端异常断开{e}")
+        logWarn(f"socket 断开：{e}")
     finally:
         logWarn(f"finally:{datetime.datetime.now()}")
         if roomId in roomMap:
@@ -105,7 +92,6 @@ def wsx(ws: Server):
             if len(roomMap[roomId]) == 0:
                 del roomMap[roomId]
         if ws.connected:
-            logWarn(f"finally:close:{datetime.datetime.now()}")
             ws.close()
 
 
