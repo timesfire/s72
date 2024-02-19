@@ -82,11 +82,12 @@ def wsx(ws: Server):
                     ws.send(item)
             except Empty:
                 pass
-            gevent.sleep(10)
+            # gevent.sleep(10)
             data = ws.receive(timeout=0)
             if data is not None:  # 收
                 if data == 'close':
                     logWarn(f"receive:close:{datetime.datetime.now()}")
+                    ws.close()
                     break
                 elif data == 'ping':
                     ws.send('pong')
@@ -104,6 +105,7 @@ def wsx(ws: Server):
             if len(roomMap[roomId]) == 0:
                 del roomMap[roomId]
         if ws.connected:
+            logWarn(f"finally:close:{datetime.datetime.now()}")
             ws.close()
 
 
