@@ -6,6 +6,7 @@ import threading
 import gevent
 import requests
 from flask import render_template, request
+from gevent.queue import Queue,Empty
 from simple_websocket import Server
 
 from run import app
@@ -40,50 +41,63 @@ words = "12356789"
 roomMap = {}
 
 
+class SocketQueue(Queue):
+    def __init__(self, uid):
+        super().__init__()
+        self.uid = uid
 @sock.route('/wsx')
 def wsx(ws: Server):
     # The ws object has the following methods:
     # - ws.send(data)
     # - ws.receive(timeout=None)
     # - ws.close(reason=None, message=None)
+    logWarn(f"Current thread ID: {threading.get_ident()}")
+    logWarn(f"Current coroutine: {gevent.getcurrent()}")
+    logWarn(f"roomMap:{roomMap}")
+    roomId = request.values.get("roomId")
+    userId = request.values.get("userId")
+    if roomId is None or userId is None:
+        ws.send("参数为空，连接断开")
+        return
+    queue = SocketQueue(userId)
     try:
-        logWarn(f"Current thread ID: {threading.get_ident()}")
-        logWarn(f"Current coroutine: {gevent.getcurrent()}")
-        logWarn(f"roomMap:{roomMap}")
-        roomId = request.values.get("roomId")
-        userId = request.values.get("userId")
-        if roomId is None or userId is None:
-            ws.send("参数为空，连接断开")
-            return
+
         # 加入房间
-        ws.ownerUserId = userId
+        # ws.ownerUserId = userId
         if roomId in roomMap:
-            roomMap[roomId].append(ws)
+            roomMap[roomId].append(queue)
         else:
-            roomMap[roomId] = [ws]
+            roomMap[roomId] = [queue]
+
         # 清除房间无效连接
-        for w in roomMap[roomId]:
-            if not w.connected:
-                roomMap[roomId].remove(w)
+        # for w in roomMap[roomId]:
+        #     if not w.connected:
+        #         roomMap[roomId].remove(w)
         while True:
-            data = ws.receive()
-            if data == 'close':
-                break
-            elif data == 'ping':
-                ws.send('pong')
-            else:
-                ws.send(data)
-        # 退出房间
-        roomMap[roomId].remove(ws)
-        # 清空 map 的 key
-        if len(roomMap[roomId]) == 0:
-            del roomMap[roomId]
-    except:
-        print("客户端异常断开")
+            try:
+                item = queue.get(timeout=1)
+                if item is not None:
+                    ws.send(item)
+            except Empty:
+                pass
+            data = ws.receive(timeout=0)
+            if data is not None:  # 收
+                if data == 'close':
+                    break
+                elif data == 'ping':
+                    ws.send('pong')
+                else:
+                    ws.send(data)
+    except Exception as e :
+        print(f"客户端异常断开{e}")
+    finally:
+        print("finally")
+        if ws.connected:
+            ws.close()
         if roomId in roomMap:
-            if ws.connected:
-                ws.close()
-            roomMap[roomId].remove(ws)
+            # 退出房间
+            if roomMap[roomId].__contains__(queue):
+                roomMap[roomId].remove(queue)
             # 清空 map 的 key
             if len(roomMap[roomId]) == 0:
                 del roomMap[roomId]
@@ -93,16 +107,11 @@ def wsx(ws: Server):
 def testNotify():
     try:
         roomId = request.values.get("roomId")
-        wsList = roomMap.get(roomId)
-        if wsList is not None:
-            for w in wsList:
+        queueList = roomMap.get(roomId)
+        if queueList is not None:
+            for q in queueList:
                 # logInfo(w)
-                if w.connected:
-                    logInfo("send info")
-                    w.send({'ll': 100, 'uu': 200})
-                else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
-                    logInfo("remove")
-                    wsList.remove(w)
+                q.put({'ll': 100, 'uu': 200})
         return make_succ_empty_response()
     except Exception as e:
         logInfo(e)
@@ -115,41 +124,34 @@ def getRoomSocketInfo():
         logWarn(f"Current coroutine: {gevent.getcurrent()}")
         logWarn(f"roomMap:{roomMap}")
         roomId = request.values.get("roomId")
-        wsList = roomMap.get(roomId)
-        if wsList is not None:
-            logWarn(f'getRoomSocketInfo:wsList len:{len(wsList)}')
+        queueList = roomMap.get(roomId)
+        wsListInfo = []
+        if queueList is not None:
+            logWarn(f'getRoomSocketInfo:wsList len:{len(queueList)}')
+            for q in queueList:
+                wsListInfo.append({"userId": q.uid})
         else:
             logWarn(f'getRoomSocketInfo:wsList 为 none')
-        wsListInfo = []
-        if wsList is not None:
-            for w in wsList:
-                wsListInfo.append({"userId": w.ownerUserId, "isConnected": w.connected})
         return make_succ_response(wsListInfo)
     except Exception as e:
         logInfo(f'getRoomSocketInfo exception:{e}')
 
 
 def releaseRoomConnect(roomId):
-    wsList = roomMap.get(f'{roomId}')
-    if wsList is not None:
-        for w in wsList:
-            if w.connected:
-                w.close()
-            wsList.remove(w)
+    queueList = roomMap.get(f'{roomId}')
+    if queueList is not None:
+        queueList.clear()
+        del roomMap[f'{roomId}']
 
 
 def notifyRoomChange(roomId, userId, latestWasteId):
     try:
         logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
-        wsList = roomMap.get(f'{roomId}')
-        if wsList is not None:
-            for w in wsList:
-                if w.connected:
-                    logInfo(f'notifyRoomChange-send: {json.dumps({"l": latestWasteId, "u": userId})}')
-                    w.send(json.dumps({"l": latestWasteId, "u": userId}))
-                else:  # todo 在这个地方进行有效性判断，是否初始化连接的时候就可以不用判断了，待定
-                    logInfo(f'notifyRoomChange-断开了-userId:{userId}')
-                    wsList.remove(w)
+        queueList = roomMap.get(f'{roomId}')
+        if queueList is not None:
+            for q in queueList:
+                logInfo(f'notifyRoomChange-send: {json.dumps({"l": latestWasteId, "u": userId})}')
+                q.put(json.dumps({"l": latestWasteId, "u": userId}))
     except Exception as e:
         logInfo(f'notifyRoomChange exception:{e}')
 
