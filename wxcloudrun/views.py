@@ -86,7 +86,6 @@ def wsx(ws: Server):
             data = ws.receive(timeout=0)
             if data is not None:  # 收
                 if data == 'close':
-                    queue.clear()
                     logWarn(f"receive:close:{datetime.datetime.now()}")
                     break
                 elif data == 'ping':
