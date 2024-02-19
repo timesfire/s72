@@ -2,7 +2,6 @@ import datetime
 import json
 import random
 import threading
-
 import gevent
 import requests
 from flask import render_template, request
@@ -17,14 +16,12 @@ from wxcloudrun.model import Counters, Room, User, RoomWasteBook
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
 from flask_apscheduler import APScheduler
 
-# from PIL import Image
-
-
 # 定时任务
 scheduler = APScheduler()
 
 
-@scheduler.task('interval', start_date=datetime.datetime.now()+ datetime.timedelta(minutes=200), id='do_job_2', minutes=200)
+@scheduler.task('interval', start_date=datetime.datetime.now() + datetime.timedelta(minutes=5), id='do_job_2',
+                minutes=200)
 def clearTask():
     with db.app.app_context():
         logInfo(f'定时任务-开始clear  {threading.current_thread().name}')
@@ -36,7 +33,6 @@ scheduler.init_app(app)
 scheduler.start()
 # 定时任务 = end =
 
-# words = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 words = "12356789"
 roomMap = {}
 
@@ -45,6 +41,8 @@ class SocketQueue(Queue):
     def __init__(self, uid):
         super().__init__()
         self.uid = uid
+
+
 @sock.route('/wsx')
 def wsx(ws: Server):
     # The ws object has the following methods:
@@ -81,10 +79,9 @@ def wsx(ws: Server):
                 else:
                     ws.send(data)
             gevent.sleep(0)
-    except Exception as e :
-        logWarn(f"socket 断开：{e}")
+    except Exception as e:
+        logWarn(f"{roomId}-{userId}-socket 断开：{e}")
     finally:
-        logWarn(f"finally:{datetime.datetime.now()}")
         if roomId in roomMap:
             # 退出房间
             if roomMap[roomId].__contains__(queue):
@@ -93,6 +90,7 @@ def wsx(ws: Server):
             if len(roomMap[roomId]) == 0:
                 del roomMap[roomId]
         if ws.connected:
+            logWarn(f"finally close:{datetime.datetime.now()}")
             ws.close()
 
 
@@ -103,7 +101,6 @@ def testNotify():
         queueList = roomMap.get(roomId)
         if queueList is not None:
             for q in queueList:
-                # logInfo(w)
                 q.put({'ll': 100, 'uu': 200})
         return make_succ_empty_response()
     except Exception as e:
@@ -139,11 +136,10 @@ def releaseRoomConnect(roomId):
 
 def notifyRoomChange(roomId, userId, latestWasteId):
     try:
-        logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
+        # logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
         queueList = roomMap.get(f'{roomId}')
         if queueList is not None:
             for q in queueList:
-                logInfo(f'notifyRoomChange-send: {json.dumps({"l": latestWasteId, "u": userId})}')
                 q.put(json.dumps({"l": latestWasteId, "u": userId}))
     except Exception as e:
         logInfo(f'notifyRoomChange exception:{e}')
