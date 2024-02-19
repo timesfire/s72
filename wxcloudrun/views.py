@@ -82,6 +82,7 @@ def wsx(ws: Server):
                     ws.send(item)
             except Empty:
                 pass
+            gevent.sleep(1)
             data = ws.receive(timeout=0)
             if data is not None:  # 收
                 if data == 'close':
