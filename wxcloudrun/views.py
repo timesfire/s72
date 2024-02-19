@@ -80,6 +80,7 @@ def wsx(ws: Server):
                     ws.send('pong')
                 else:
                     ws.send(data)
+            gevent.sleep(0)
     except Exception as e :
         logWarn(f"socket 断开：{e}")
     finally:
