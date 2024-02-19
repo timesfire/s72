@@ -92,8 +92,6 @@ def wsx(ws: Server):
         print(f"客户端异常断开{e}")
     finally:
         print("finally")
-        if ws.connected:
-            ws.close()
         if roomId in roomMap:
             # 退出房间
             if roomMap[roomId].__contains__(queue):
@@ -101,6 +99,8 @@ def wsx(ws: Server):
             # 清空 map 的 key
             if len(roomMap[roomId]) == 0:
                 del roomMap[roomId]
+        if ws.connected:
+            ws.close()
 
 
 @app.route('/testNotify')
