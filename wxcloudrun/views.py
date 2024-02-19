@@ -52,7 +52,7 @@ def wsx(ws: Server):
     # - ws.receive(timeout=None)
     # - ws.close(reason=None, message=None)
     logWarn(f"Current thread ID: {threading.get_ident()}")
-    logWarn(f"Current coroutine: {gevent.getcurrent()}")
+
     logWarn(f"roomMap:{roomMap}")
     roomId = request.values.get("roomId")
     userId = request.values.get("userId")
@@ -74,24 +74,27 @@ def wsx(ws: Server):
         #     if not w.connected:
         #         roomMap[roomId].remove(w)
         while True:
+            logWarn(f"Current coroutine: {gevent.getcurrent()}")
             try:
                 item = queue.get(timeout=1)
                 if item is not None:
+                    logWarn(f"send:{item}")
                     ws.send(item)
             except Empty:
                 pass
             data = ws.receive(timeout=0)
             if data is not None:  # 收
                 if data == 'close':
+                    logWarn(f"receive:close")
                     break
                 elif data == 'ping':
                     ws.send('pong')
                 else:
                     ws.send(data)
     except Exception as e :
-        print(f"客户端异常断开{e}")
+        logInfo(f"客户端异常断开{e}")
     finally:
-        print("finally")
+        logWarn("finally")
         if roomId in roomMap:
             # 退出房间
             if roomMap[roomId].__contains__(queue):
