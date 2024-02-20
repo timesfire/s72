@@ -765,3 +765,16 @@ def getAchievement():
     userId = params['userId']
     res = dao.query_achievement_by_uid(userId)
     return make_succ_response(res)
+
+
+# 查看房间是否已经关闭
+@app.route('/api/fetchRoomStatus', methods=['POST'])
+def fetchRoomStatus():
+    params = request.get_json()
+    roomId = params['roomId']
+    room = dao.query_roombyid(roomId)
+    if room is not None:
+        return make_succ_response(room.status)
+    else:
+        logWarn(f'fetchRoomStatus error: {roomId}')
+        return make_succ_response("")
