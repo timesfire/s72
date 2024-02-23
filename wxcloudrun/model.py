@@ -56,13 +56,17 @@ class RoomWasteBook(db.Model):
     outlay_user_id = db.Column(db.Integer)
     receive_user_id = db.Column(db.Integer)
     score = db.Column(db.Float)
-    type = db.Column(db.Integer) # 流水类型 1支付 2进入 3退出 4结算 5修改个人信息
+    type = db.Column(db.Integer) # 流水类型 1支付 2进入 3退出 4结算 5修改个人信息 6 茶水设置
     user_id = db.Column(db.Integer)
     user_nickname = db.Column(db.String(100))
     user_avatar_url = db.Column(db.String(200))
     msg = db.Column(db.String(50))
     settle_info = db.Column(db.String(500))
     time = db.Column('time', db.TIMESTAMP, nullable=False, default=datetime.now())
+    tea_ratio = db.Column(db.Integer)  # 默认值 0
+    tea_limit = db.Column(db.Integer)  # 茶水金额上限,-1无限制
+
+
 
 class RoomMemberInfo(db.Model):
     # 房间人员各种信息

@@ -566,7 +566,7 @@ def wasteConvertToJsonList(wastes):
         wasteList.append(
             {"id": w.id, "roomId": w.room_id, "outlayUserId": w.outlay_user_id, "receiveUserId": w.receive_user_id, "score": w.score, "type": w.type,
              "userId": w.user_id, "userNickname": w.user_nickname, "userAvatarUrl": w.user_avatar_url, "settleInfo": w.settle_info, "msg": w.msg,
-             "time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
+             "teaRatio":w.tea_ratio,"teaLimit":w.tea_limit,"time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
     return wasteList
 
 
@@ -631,11 +631,23 @@ def calculateScore(userScores, wastes):
 
 # 结算
 def settle(userScores, currentSettleUid: int):
+    # 判断茶水是否参与结算
+    isTeaNotParticipate = False # 默认参与
+    if userScores.__contains__('-100') and userScores['-100'] != 0: # 是否包含茶水,茶水为0时正常结算就可以
+        noZeroScoreCount = 0  # 非0分数
+        for score in userScores.values():
+            if score != 0:
+                noZeroScoreCount = noZeroScoreCount + 1
+        if noZeroScoreCount >= 3 :# 房间里有效结算人员（score !=0 ）大于等于2人时，茶水不参与结算
+            isTeaNotParticipate = True
+
     curUidStr = str(currentSettleUid)
     settleMsg = []  # 结算结果
-    sortedUserScores = sorted(userScores.items(), key=lambda kv: (kv[1], kv[0]))  # 结算策略，优先支付最多的
+    sortedUserScores = sorted(userScores.items(), key=lambda kv: (kv[1], kv[0]))  # 结算策略，人均最小支付次数，最少人参与原则 两个人各支付一次>一个人支付两次
     if userScores[curUidStr] > 0:
         for sus in sortedUserScores:
+            if isTeaNotParticipate and sus[0] == '-100':
+                continue
             if sus[1] < 0:
                 tempScore = userScores[curUidStr] + sus[1]
                 if tempScore <= 0:  # 完成结算
@@ -648,18 +660,50 @@ def settle(userScores, currentSettleUid: int):
                     userScores[curUidStr] = tempScore
                     userScores[sus[0]] = 0
     elif userScores[curUidStr] < 0:
-        for sus in reversed(sortedUserScores):
-            if sus[1] > 0:
-                tempScore = userScores[curUidStr] + sus[1]
+        hasPositiveScore = False # 有正的分数
+        for index, (key, score) in enumerate(reversed(sortedUserScores)):
+            if isTeaNotParticipate and key == '-100':
+                continue
+            tempScore = userScores[curUidStr] + score
+            if score > 0:
+                hasPositiveScore = True
                 if tempScore >= 0:  # 完成结算
-                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(sus[0]), "score": abs(userScores[curUidStr])})
+                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(key), "score": abs(userScores[curUidStr])})
                     userScores[curUidStr] = 0
-                    userScores[sus[0]] = tempScore
+                    userScores[key] = tempScore
                     break
                 else:
-                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(sus[0]), "score": sus[1]})
+                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(key), "score": score})
                     userScores[curUidStr] = tempScore
-                    userScores[sus[0]] = 0
+                    userScores[key] = 0
+            elif score < 0: # 为0 则不参与结算
+                if hasPositiveScore:
+                    break
+                if key != curUidStr: # 排除自己
+                    settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(key),"score": abs(userScores[curUidStr])})
+                    userScores[curUidStr] = 0
+                    userScores[key] = tempScore
+                    break
+        # 判断是否已经完成结算
+        if userScores[curUidStr] != 0:
+            # 修改最后一条结算记录
+            lastItem = settleMsg[len(settleMsg)-1]
+            lastItem['score'] = lastItem['score'] + abs(userScores[curUidStr])
+            userScores[str(lastItem['receiveUserId'])] = userScores[str(lastItem['receiveUserId'])]+userScores[curUidStr]
+            userScores[curUidStr] = 0
+
+        # for sus in reversed(sortedUserScores):
+        #     if sus[1] > 0:
+        #         tempScore = userScores[curUidStr] + sus[1]
+        #         if tempScore >= 0:  # 完成结算
+        #             settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(sus[0]), "score": abs(userScores[curUidStr])})
+        #             userScores[curUidStr] = 0
+        #             userScores[sus[0]] = tempScore
+        #             break
+        #         else:
+        #             settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(sus[0]), "score": sus[1]})
+        #             userScores[curUidStr] = tempScore
+        #             userScores[sus[0]] = 0
     return settleMsg
 
 
@@ -679,8 +723,8 @@ def roomSettle():
     calculateScore(userScores, wastes)
     # 循环结算
     settleInfo = []
-    for i in range(8):  # 最多8个用户一个房间
-        sortedUserScores = sorted(userScores.items(), reverse=True, key=lambda kv: (kv[1], kv[0]))
+    for i in range(8):  # 最多8个用户一个房间，输多的先结，因为茶水>=0 ,所以也适用  ，茶水不主动结算，只被动结算
+        sortedUserScores = sorted(userScores.items(), key=lambda kv: (kv[1], kv[0]))
         if sortedUserScores[0][1] == 0:
             break
         msg = settle(userScores, sortedUserScores[0][0])
@@ -713,7 +757,27 @@ def individualSettle():
 
     # 因为有插入操作，第二次查询最新流水
     wastes = getRoomNewRecords(roomId, latestWasteId)
-    notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])  # todo 使用线程或协程
+    notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
+    return make_succ_response({"roomId": roomId, "wasteList": wastes})
+
+
+# 茶水设置
+@app.route('/api/teaFeeSet', methods=['POST'])
+def teaFeeSet():
+    # 获取请求体参数
+    params = request.get_json()
+    userId = params['userId']
+    roomId = params['roomId']
+    latestWasteId = params['latestWasteId']
+    teaRatio = params['teaRatio']
+    teaLimit = params['teaLimit']
+    logInfo(f"teaFeeSet:{params}")
+    waste = RoomWasteBook(room_id=roomId, user_id=userId, tea_ratio=teaRatio, tea_limit=teaLimit,
+                          type=6, time=datetime.datetime.now())
+    dao.add_waste_to_room(waste)
+    # 返回最新的房间流水，由前端进行计算
+    wastes = getRoomNewRecords(roomId, latestWasteId)
+    notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
 
 
