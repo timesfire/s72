@@ -9,6 +9,7 @@ class Counters(db.Model):
     # 设置结构体表格名称
     __tablename__ = 'Counters'
 
+
     # 设定结构体对应表格的字段
     id = db.Column(db.Integer, primary_key=True)
     count = db.Column(db.Integer, default=1)
@@ -45,6 +46,7 @@ class User(db.Model):
     latest_room_id = db.Column("latest_room_id", db.Integer)
     myapp = db.Column(db.String(10))
     time = db.Column('time', db.TIMESTAMP, nullable=False, default=datetime.now())
+
 
 class RoomWasteBook(db.Model):
     # 房间流水表

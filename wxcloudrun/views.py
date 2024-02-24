@@ -5,7 +5,7 @@ import threading
 import gevent
 import requests
 from flask import render_template, request
-from gevent.queue import Queue,Empty
+from gevent.queue import Queue, Empty
 from simple_websocket import Server
 
 from run import app
@@ -313,6 +313,12 @@ def enter_room():
 
     userId = int(request.values.get("userId"))
     roomIdStr = request.values.get("roomId")
+
+    curTeaFeeAmount = int(request.values.get('curTeaFeeAmount'))
+    curTeaFeeLimit = int(request.values.get('curTeaFeeLimit'))
+    curTeaFeeRatio = int(request.values.get('curTeaFeeRatio'))
+
+
     user = dao.query_user_by_id(userId)
     latestRoomId = user.latest_room_id
     logWarn(f'api:enterRoom -- userId:{userId} -- newRoomId:{roomIdStr} -- oldRoomId:{latestRoomId}')
@@ -332,7 +338,7 @@ def enter_room():
                     # 判断是否需要结算
                     wastes = dao.get_wastes_from_room_by_latestid(latestRoomId, 0)
                     userScores = {}
-                    calculateScore(userScores=userScores, wastes=wastes)
+                    calculateScore(userScores=userScores, wastes=wastes,curTeaFeeAmount=curTeaFeeAmount, curTeaFeeLimit=curTeaFeeLimit,curTeaFeeRatio=curTeaFeeRatio)
                     if userScores.get(f'{userId}', 0) != 0:  # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
                         return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,
                                                    "wasteList": wasteConvertToJsonList(wastes), "newRoomId": newRoomId, "newRoomName": newRoom.name})
@@ -358,15 +364,15 @@ def enter_room():
 def getCacheRoom(myapp):
     room = dao.get_empty_room_and_update_status(myapp)
     if room is None:
-        room = createRoom(myapp,1)
+        room = createRoom(myapp, 1)
     return room
 
 
 def createRoom(myapp,status):
     if status == 1:
-        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(),use_at=datetime.datetime.now(), user_ids=[],myapp=myapp)
+        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), use_at=datetime.datetime.now(), user_ids=[],myapp=myapp)
     else:
-        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[],myapp=myapp)
+        room = Room(name=randomRoomName(), status=status, created_at=datetime.datetime.now(), user_ids=[], myapp=myapp)
     insert_room(room)
     qrcodeUrl = getQrCode(myapp,room.id, room.name)
     update_room_qr_byid(room.id, qrcodeUrl)
@@ -378,7 +384,7 @@ def createRoom(myapp,status):
 @app.route('/api/batchCreateRoom', methods=['POST'])
 def batchCreateRoom():
     for i in range(1, 500):
-        createRoom("100",0)
+        createRoom("100", 0)
 
 
 def appSecret(myapp):
@@ -394,8 +400,8 @@ def appId(myapp):
     else:
         return "wxc9afbf53652df0ec"
 
-def getQrCode(myapp,roomId, roomName):
 
+def getQrCode(myapp, roomId, roomName):
     qrImg = requests.post(url=f"http://api.weixin.qq.com/wxa/getwxacodeunlimit?from_appid={appId(myapp)}",
                           json={"page": "pages/index/index", "scene": f"roomId={roomId}&myapp={myapp}", "width": 300, "check_path": False})
 
@@ -480,7 +486,7 @@ def login():
             isNewUser = 0
             if user is None:
                 user = User(wx_unionid=jsonData.get('unionid'), wx_openid=openId, wx_session_key=jsonData.get('session_key'), latest_room_id=0,
-                            myapp=myapp,time=datetime.datetime.now())
+                            myapp=myapp, time=datetime.datetime.now())
                 insert_user(user)
                 isNewUser = 1  # 新用户
             return make_succ_response({"id": user.id, "nickname": user.nickname, "avatar_url": user.avatar_url, "isNewUser": isNewUser})
@@ -529,7 +535,7 @@ def get_qrcode():
     roomId = "396"
     roomName = "OAI"
 
-    return make_succ_response(getQrCode('100',roomId, roomName))
+    return make_succ_response(getQrCode('100', roomId, roomName))
 
     # ROOT_PATH = os.path.dirname(__file__)
     # new_file_name = os.path.join(f"{ROOT_PATH}/static/images","xx.png")
@@ -566,7 +572,7 @@ def wasteConvertToJsonList(wastes):
         wasteList.append(
             {"id": w.id, "roomId": w.room_id, "outlayUserId": w.outlay_user_id, "receiveUserId": w.receive_user_id, "score": w.score, "type": w.type,
              "userId": w.user_id, "userNickname": w.user_nickname, "userAvatarUrl": w.user_avatar_url, "settleInfo": w.settle_info, "msg": w.msg,
-             "teaRatio":w.tea_ratio,"teaLimit":w.tea_limit,"time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
+             "teaRatio":w.tea_ratio,"teaLimit":w.tea_limit, "time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
     return wasteList
 
 
@@ -593,6 +599,7 @@ def is_float(s):
         pass  # 如果引发了ValueError这种异常，不做任何事情（pass：不做任何事情，一般用做占位语句）
     return False
 
+
 # 支付分数
 @app.route('/api/outlayScore', methods=['POST'])
 def outlayScore():
@@ -616,18 +623,62 @@ def outlayScore():
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
 
 
+# 直接向茶水支付分数
+@app.route('/api/outlayTeaScore', methods=['POST'])
+def outlayTeaScore():
+    # 获取请求体参数
+    params = request.get_json()
+    roomId = params['roomId']
+    outlayUserId = params['outlayUserId']
+    latestWasteId = params['latestWasteId']
+    score = params['score']
+    curTeaFeeLimit = params['curTeaFeeLimit']
+    curTeaFeeAmount = params['curTeaFeeAmount']
+    curTeaFeeRatio = params['curTeaFeeRatio']
+    logInfo(f"outlayTeaScore:{params}")
+
+    #  计算当前的已经累计的 茶水费
+    wasteList = dao.get_wastes_from_room_by_latestid(roomId, latestWasteId)
+    curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio,
+                                                                            curTeaFeeAmount, wasteList)
+    bizCode = 0
+    if curTeaFeeLimit != -1 and curTeaFeeAmount >= curTeaFeeLimit:  # 茶水费已经收齐
+        bizCode = 10003
+    if bizCode == 0:
+        if is_float(score):  # 兼容前端未做的校验
+            rwb = RoomWasteBook(room_id=roomId, outlay_user_id=outlayUserId, receive_user_id=-100, score=score,
+                                type=1, time=datetime.datetime.now())
+            dao.add_waste_to_room(rwb)
+            wastes = getRoomNewRecords(roomId, latestWasteId)
+            notifyRoomChange(roomId, outlayUserId, wastes[len(wastes) - 1]['id'])
+            return make_succ_response({"roomId": roomId, "bizCode": bizCode, "wasteList": wastes})
+        else:
+            bizCode = 10004  # 参数有问题
+    return make_succ_response({"roomId": roomId, "bizCode": bizCode, "wasteList": wasteConvertToJsonList(wasteList)})
+
+
 # 算分
-def calculateScore(userScores, wastes):
+def calculateScore(userScores, wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRatio):
+    theCurTeaFeeAmount = curTeaFeeAmount
+    theCurTeaFeeLimit = curTeaFeeLimit
+    theCurTeaFeeRatio = curTeaFeeRatio
     for w in wastes:
         if w.type == 1:  # 支付
-            userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
-            userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score
+            tempTeaFee = getTeaFeeFromWaste(w, theCurTeaFeeLimit, theCurTeaFeeRatio, theCurTeaFeeAmount)
+            userScores['-100'] = userScores.get('-100', 0) + tempTeaFee
+            if w.receive_user_id == -100: # 向茶水支付
+                userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - tempTeaFee
+            else:
+                userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
+                userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score - tempTeaFee
         elif w.type == 4:  # 个人结算
             settleInfo = json.loads(w.settle_info)
             for settle in settleInfo:
                 userScores[f'{settle["outlayUserId"]}'] = userScores.get(f'{settle["outlayUserId"]}', 0) + settle['score']
                 userScores[f'{settle["receiveUserId"]}'] = userScores.get(f'{settle["receiveUserId"]}', 0) - settle['score']
-
+        elif w.type == 6: # 茶水设置
+            theCurTeaFeeLimit = w.tea_limit
+            theCurTeaFeeRatio = w.tea_ratio
 
 # 结算
 def settle(userScores, currentSettleUid: int):
@@ -660,7 +711,7 @@ def settle(userScores, currentSettleUid: int):
                     userScores[curUidStr] = tempScore
                     userScores[sus[0]] = 0
     elif userScores[curUidStr] < 0:
-        hasPositiveScore = False # 有正的分数
+        hasPositiveScore = False  # 有正的分数
         for index, (key, score) in enumerate(reversed(sortedUserScores)):
             if isTeaNotParticipate and key == '-100':
                 continue
@@ -679,7 +730,7 @@ def settle(userScores, currentSettleUid: int):
             elif score < 0: # 为0 则不参与结算
                 if hasPositiveScore:
                     break
-                if key != curUidStr: # 排除自己
+                if key != curUidStr:  # 排除自己
                     settleMsg.append({"outlayUserId": currentSettleUid, "receiveUserId": int(key),"score": abs(userScores[curUidStr])})
                     userScores[curUidStr] = 0
                     userScores[key] = tempScore
@@ -716,11 +767,14 @@ def roomSettle():
     roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
+    curTeaFeeAmount = params['curTeaFeeAmount']
+    curTeaFeeLimit = params['curTeaFeeLimit']
+    curTeaFeeRatio = params['curTeaFeeRatio']
     logInfo(f"roomSettle:{params}")
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores, wastes)
+    calculateScore(userScores, wastes, curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
     # 循环结算
     settleInfo = []
     for i in range(8):  # 最多8个用户一个房间，输多的先结，因为茶水>=0 ,所以也适用  ，茶水不主动结算，只被动结算
@@ -741,11 +795,14 @@ def individualSettle():
     roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
+    curTeaFeeAmount = params['curTeaFeeAmount']
+    curTeaFeeLimit = params['curTeaFeeLimit']
+    curTeaFeeRatio = params['curTeaFeeRatio']
     logInfo(f"individualSettle:{params}")
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores, wastes)
+    calculateScore(userScores, wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRatio)
     # 结算
 
     settleMsg = settle(userScores, userId)
@@ -760,6 +817,33 @@ def individualSettle():
     notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
     return make_succ_response({"roomId": roomId, "wasteList": wastes})
 
+def getTeaFeeFromWaste(w,curTeaFeeLimit,curTeaFeeRatio,curTeaFeeAmount):
+    tempFee = 0
+    if w.type == 1:  # 支付
+        if curTeaFeeLimit == -1 or curTeaFeeAmount < curTeaFeeLimit:
+            if w.receive_user_id != -100:  # 非直接向茶水支付，进行自动抽茶水
+                if curTeaFeeRatio > 0:
+                    tempFee = round(w.score * curTeaFeeRatio / 100)
+                    if tempFee == 0 and w.score >= 2:
+                        tempFee = 1
+            else:
+                tempFee = w.score
+            if curTeaFeeLimit != -1 and (tempFee + curTeaFeeAmount > curTeaFeeLimit):
+                tempFee = curTeaFeeLimit - curTeaFeeAmount
+    return tempFee
+
+
+# 计算累计茶水
+def calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount, wastesList):
+    for w in wastesList:
+        if w.type == 1:  # 支付
+            curTeaFeeAmount = curTeaFeeAmount + getTeaFeeFromWaste(w,curTeaFeeLimit,curTeaFeeRatio, curTeaFeeAmount)
+        elif w.type == 6:  # 茶水设置
+            curTeaFeeLimit = w.tea_limit
+            curTeaFeeRatio = w.tea_ratio
+    return curTeaFeeLimit,curTeaFeeRatio,curTeaFeeAmount
+
+
 
 # 茶水设置
 @app.route('/api/teaFeeSet', methods=['POST'])
@@ -771,14 +855,30 @@ def teaFeeSet():
     latestWasteId = params['latestWasteId']
     teaRatio = params['teaRatio']
     teaLimit = params['teaLimit']
+    curTeaFeeAmount = params['curTeaFeeAmount']
+    curTeaFeeLimit = params['curTeaFeeLimit']
+    curTeaFeeRatio = params['curTeaFeeRatio']
     logInfo(f"teaFeeSet:{params}")
-    waste = RoomWasteBook(room_id=roomId, user_id=userId, tea_ratio=teaRatio, tea_limit=teaLimit,
-                          type=6, time=datetime.datetime.now())
-    dao.add_waste_to_room(waste)
-    # 返回最新的房间流水，由前端进行计算
-    wastes = getRoomNewRecords(roomId, latestWasteId)
-    notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
-    return make_succ_response({"roomId": roomId, "wasteList": wastes})
+
+    #  计算当前的已经累计的 茶水费
+    wastesList = dao.get_wastes_from_room_by_latestid(roomId, latestWasteId)
+    curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio,
+                                                                            curTeaFeeAmount, wastesList)
+    bizCode = 0
+    if teaLimit < curTeaFeeAmount:
+        bizCode = 10001  # 设置的上限小于当前已经累计的茶水
+    if teaLimit == curTeaFeeLimit and teaRatio == curTeaFeeRatio:
+        bizCode = 10002  # 设置的值未发生改变，不需要重复设置
+
+    if bizCode == 0:
+        waste = RoomWasteBook(room_id=roomId, user_id=userId, tea_ratio=teaRatio, tea_limit=teaLimit,
+                              type=6, time=datetime.datetime.now())
+        dao.add_waste_to_room(waste)
+        # 返回最新的房间流水，由前端进行计算
+        wastes = getRoomNewRecords(roomId, latestWasteId)
+        notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
+        return make_succ_response({"roomId": roomId,"bizCode":bizCode,"wasteList": wastes})
+    return make_succ_response({"roomId": roomId, "bizCode":bizCode,"curTeaFeeAmount": curTeaFeeAmount, "wasteList": wasteConvertToJsonList(wastesList)})
 
 
 # 退出房间
@@ -788,6 +888,9 @@ def exit_room():
     params = request.get_json()
     userId = params['userId']
     roomId = params['roomId']
+    curTeaFeeAmount = params['curTeaFeeAmount']
+    curTeaFeeLimit = params['curTeaFeeLimit']
+    curTeaFeeRatio = params['curTeaFeeRatio']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
     logInfo(f"exit_room:{params}")
@@ -795,7 +898,7 @@ def exit_room():
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores, wastes)
+    calculateScore(userScores, wastes,curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
 
     # 验证分数是否为0
     if userScores[f'{userId}'] == 0:
