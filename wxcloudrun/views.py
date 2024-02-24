@@ -314,11 +314,6 @@ def enter_room():
     userId = int(request.values.get("userId"))
     roomIdStr = request.values.get("roomId")
 
-    curTeaFeeAmount = int(request.values.get('curTeaFeeAmount'))
-    curTeaFeeLimit = int(request.values.get('curTeaFeeLimit'))
-    curTeaFeeRatio = int(request.values.get('curTeaFeeRatio'))
-
-
     user = dao.query_user_by_id(userId)
     latestRoomId = user.latest_room_id
     logWarn(f'api:enterRoom -- userId:{userId} -- newRoomId:{roomIdStr} -- oldRoomId:{latestRoomId}')
@@ -338,7 +333,7 @@ def enter_room():
                     # 判断是否需要结算
                     wastes = dao.get_wastes_from_room_by_latestid(latestRoomId, 0)
                     userScores = {}
-                    calculateScore(userScores=userScores, wastes=wastes,curTeaFeeAmount=curTeaFeeAmount, curTeaFeeLimit=curTeaFeeLimit,curTeaFeeRatio=curTeaFeeRatio)
+                    calculateScore(userScores=userScores, wastes=wastes,curTeaFeeAmount=0, curTeaFeeLimit=-1,curTeaFeeRatio=0)
                     if userScores.get(f'{userId}', 0) != 0:  # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
                         return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,
                                                    "wasteList": wasteConvertToJsonList(wastes), "newRoomId": newRoomId, "newRoomName": newRoom.name})
@@ -651,10 +646,10 @@ def outlayTeaScore():
             dao.add_waste_to_room(rwb)
             wastes = getRoomNewRecords(roomId, latestWasteId)
             notifyRoomChange(roomId, outlayUserId, wastes[len(wastes) - 1]['id'])
-            return make_succ_response({"roomId": roomId, "bizCode": bizCode, "wasteList": wastes})
+            return make_succ_response({"roomId": roomId, "bizCode": bizCode,"curTeaFeeAmount":curTeaFeeAmount, "wasteList": wastes})
         else:
             bizCode = 10004  # 参数有问题
-    return make_succ_response({"roomId": roomId, "bizCode": bizCode, "wasteList": wasteConvertToJsonList(wasteList)})
+    return make_succ_response({"roomId": roomId, "bizCode": bizCode,"curTeaFeeAmount":curTeaFeeAmount, "wasteList": wasteConvertToJsonList(wasteList)})
 
 
 # 算分
@@ -877,7 +872,7 @@ def teaFeeSet():
         # 返回最新的房间流水，由前端进行计算
         wastes = getRoomNewRecords(roomId, latestWasteId)
         notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
-        return make_succ_response({"roomId": roomId,"bizCode":bizCode,"wasteList": wastes})
+        return make_succ_response({"roomId": roomId,"bizCode":bizCode,"curTeaFeeAmount": curTeaFeeAmount,"wasteList": wastes})
     return make_succ_response({"roomId": roomId, "bizCode":bizCode,"curTeaFeeAmount": curTeaFeeAmount, "wasteList": wasteConvertToJsonList(wastesList)})
 
 
