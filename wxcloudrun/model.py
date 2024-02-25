@@ -58,7 +58,7 @@ class RoomWasteBook(db.Model):
     outlay_user_id = db.Column(db.Integer)
     receive_user_id = db.Column(db.Integer)
     score = db.Column(db.Float)
-    type = db.Column(db.Integer) # 流水类型 1支付 2进入 3退出 4结算 5修改个人信息 6 茶水设置
+    type = db.Column(db.Integer) # 流水类型 1支付 2进入 3退出 4结算 5修改个人信息 6 茶水设置 7 添加茶水
     user_id = db.Column(db.Integer)
     user_nickname = db.Column(db.String(100))
     user_avatar_url = db.Column(db.String(200))

@@ -875,6 +875,22 @@ def teaFeeSet():
         return make_succ_response({"roomId": roomId,"bizCode":bizCode,"curTeaFeeAmount": curTeaFeeAmount,"wasteList": wastes})
     return make_succ_response({"roomId": roomId, "bizCode":bizCode,"curTeaFeeAmount": curTeaFeeAmount, "wasteList": wasteConvertToJsonList(wastesList)})
 
+# 添加茶水
+@app.route('/api/addTeaFee', methods=['POST'])
+def addTeaFee():
+    # 获取请求体参数
+    params = request.get_json()
+    userId = params['userId']
+    roomId = params['roomId']
+    latestWasteId = params['latestWasteId']
+    logInfo(f"addTeaFee:{params}")
+    waste = RoomWasteBook(room_id=roomId, user_id=userId,type=7, time=datetime.datetime.now())
+    dao.add_waste_to_room(waste)
+    wastes = getRoomNewRecords(roomId, latestWasteId)
+    notifyRoomChange(roomId, userId, wastes[len(wastes) - 1]['id'])
+    return make_succ_response({"roomId": roomId,"wasteList": wastes})
+
+
 
 # 退出房间
 @app.route('/api/exitRoom', methods=['POST'])
