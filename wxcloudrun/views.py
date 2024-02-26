@@ -402,6 +402,7 @@ def getQrCode(myapp, roomId, roomName):
 
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
+    print(qrImg)
     print("---------getQrCode------------")
     # 1、获取上传地址
     tempFilePath = f"qrcode/{roomName}-{roomId}.png"
@@ -860,7 +861,7 @@ def teaFeeSet():
     curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio,
                                                                             curTeaFeeAmount, wastesList)
     bizCode = 0
-    if teaLimit < curTeaFeeAmount:
+    if teaLimit != -1 and teaLimit < curTeaFeeAmount:
         bizCode = 10001  # 设置的上限小于当前已经累计的茶水
     if teaLimit == curTeaFeeLimit and teaRatio == curTeaFeeRatio:
         bizCode = 10002  # 设置的值未发生改变，不需要重复设置
