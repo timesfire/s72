@@ -402,7 +402,6 @@ def getQrCode(myapp, roomId, roomName):
 
     # 上传到对象服务器
     # prod-3gvgzn5xf978a9ac
-    print(qrImg)
     print("---------getQrCode------------")
     # 1、获取上传地址
     tempFilePath = f"qrcode/{roomName}-{roomId}.png"
