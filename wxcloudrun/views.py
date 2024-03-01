@@ -333,7 +333,7 @@ def enter_room():
                     # 判断是否需要结算
                     wastes = dao.get_wastes_from_room_by_latestid(latestRoomId, 0)
                     userScores = {}
-                    calculateScore(userScores=userScores, wastes=wastes,curTeaFeeAmount=0, curTeaFeeLimit=-1,curTeaFeeRatio=0)
+                    calculateScore(userScores=userScores,userStatus={}, wastes=wastes,curTeaFeeAmount=0, curTeaFeeLimit=-1,curTeaFeeRatio=0)
                     if userScores.get(f'{userId}', 0) != 0:  # 需要结算,先进入老的房间，结算完后提示可以进入新的房间
                         return make_succ_response({"roomId": latestRoom.id, "roomName": latestRoom.name, "shareQrUrl": latestRoom.share_qr,
                                                    "wasteList": wasteConvertToJsonList(wastes), "newRoomId": newRoomId, "newRoomName": newRoom.name})
@@ -630,11 +630,12 @@ def outlayTeaScore():
     curTeaFeeLimit = params['curTeaFeeLimit']
     curTeaFeeAmount = params['curTeaFeeAmount']
     curTeaFeeRatio = params['curTeaFeeRatio']
+    userStatus = params['userStatus']
     logInfo(f"outlayTeaScore:{params}")
 
     #  计算当前的已经累计的 茶水费
     wasteList = dao.get_wastes_from_room_by_latestid(roomId, latestWasteId)
-    curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio,
+    curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(userStatus,curTeaFeeLimit, curTeaFeeRatio,
                                                                             curTeaFeeAmount, wasteList)
     bizCode = 0
     if curTeaFeeLimit != -1 and curTeaFeeAmount >= curTeaFeeLimit:  # 茶水费已经收齐
@@ -653,12 +654,14 @@ def outlayTeaScore():
 
 
 # 算分
-def calculateScore(userScores, wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRatio):
+def calculateScore(userScores, userStatus,wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRatio):
     theCurTeaFeeAmount = curTeaFeeAmount
     theCurTeaFeeLimit = curTeaFeeLimit
     theCurTeaFeeRatio = curTeaFeeRatio
     for w in wastes:
         if w.type == 1:  # 支付
+            if w.receive_user_id != -100 and userStatus.get(f'{w.receive_user_id}', 0) == 0:  # 无效计分
+                continue
             tempTeaFee = getTeaFeeFromWaste(w, theCurTeaFeeLimit, theCurTeaFeeRatio, theCurTeaFeeAmount)
             userScores['-100'] = userScores.get('-100', 0) + tempTeaFee
             if w.receive_user_id == -100: # 向茶水支付
@@ -666,6 +669,10 @@ def calculateScore(userScores, wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRa
             else:
                 userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
                 userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score - tempTeaFee
+        elif w.type == 2:  # 进入
+            userStatus[f'{w.user_id}'] = 1
+        elif w.type == 3:  # 退出
+            userStatus[f'{w.user_id}'] = 0
         elif w.type == 4:  # 个人结算
             settleInfo = json.loads(w.settle_info)
             for settle in settleInfo:
@@ -762,6 +769,7 @@ def roomSettle():
     roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
+    userStatus = params['userStatus']
     curTeaFeeAmount = params['curTeaFeeAmount']
     curTeaFeeLimit = params['curTeaFeeLimit']
     curTeaFeeRatio = params['curTeaFeeRatio']
@@ -769,7 +777,7 @@ def roomSettle():
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores, wastes, curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
+    calculateScore(userScores,userStatus, wastes, curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
     # 循环结算
     settleInfo = []
     for i in range(8):  # 最多8个用户一个房间，输多的先结，因为茶水>=0 ,所以也适用  ，茶水不主动结算，只被动结算
@@ -790,6 +798,7 @@ def individualSettle():
     roomId = params['roomId']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
+    userStatus = params['userStatus']
     curTeaFeeAmount = params['curTeaFeeAmount']
     curTeaFeeLimit = params['curTeaFeeLimit']
     curTeaFeeRatio = params['curTeaFeeRatio']
@@ -797,7 +806,7 @@ def individualSettle():
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores, wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRatio)
+    calculateScore(userScores,userStatus, wastes,curTeaFeeAmount,curTeaFeeLimit,curTeaFeeRatio)
     # 结算
 
     settleMsg = settle(userScores, userId)
@@ -829,10 +838,16 @@ def getTeaFeeFromWaste(w,curTeaFeeLimit,curTeaFeeRatio,curTeaFeeAmount):
 
 
 # 计算累计茶水
-def calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount, wastesList):
+def calculateTeaFeeAmount(userStatus,curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount, wastesList):
     for w in wastesList:
         if w.type == 1:  # 支付
+            if w.receive_user_id != -100 and userStatus.get(f'{w.receive_user_id}', 0) == 0:  # 无效计分
+                continue
             curTeaFeeAmount = curTeaFeeAmount + getTeaFeeFromWaste(w,curTeaFeeLimit,curTeaFeeRatio, curTeaFeeAmount)
+        elif w.type == 2:  # 进入
+            userStatus[f'{w.user_id}'] = 1
+        elif w.type == 3:  # 退出
+            userStatus[f'{w.user_id}'] = 0
         elif w.type == 6:  # 茶水设置
             curTeaFeeLimit = w.tea_limit
             curTeaFeeRatio = w.tea_ratio
@@ -850,6 +865,7 @@ def teaFeeSet():
     latestWasteId = params['latestWasteId']
     teaRatio = params['teaRatio']
     teaLimit = params['teaLimit']
+    userStatus = params['userStatus']
     curTeaFeeAmount = params['curTeaFeeAmount']
     curTeaFeeLimit = params['curTeaFeeLimit']
     curTeaFeeRatio = params['curTeaFeeRatio']
@@ -857,7 +873,7 @@ def teaFeeSet():
 
     #  计算当前的已经累计的 茶水费
     wastesList = dao.get_wastes_from_room_by_latestid(roomId, latestWasteId)
-    curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(curTeaFeeLimit, curTeaFeeRatio,
+    curTeaFeeLimit, curTeaFeeRatio, curTeaFeeAmount = calculateTeaFeeAmount(userStatus,curTeaFeeLimit, curTeaFeeRatio,
                                                                             curTeaFeeAmount, wastesList)
     bizCode = 0
     if teaLimit != -1 and teaLimit < curTeaFeeAmount:
@@ -904,12 +920,13 @@ def exit_room():
     curTeaFeeRatio = params['curTeaFeeRatio']
     latestWasteId = params['latestWasteId']
     userScores = params['userScores']
+    userStatus = params['userStatus']
     logInfo(f"exit_room:{params}")
 
     # 查询最新流水
     wastes = dao.get_wastes_from_room_by_latestid(roomId=roomId, latestWasteId=latestWasteId)
     # 算分
-    calculateScore(userScores, wastes,curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
+    calculateScore(userScores, userStatus,wastes,curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
 
     # 验证分数是否为0
     if userScores[f'{userId}'] == 0:
