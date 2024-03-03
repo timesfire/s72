@@ -934,7 +934,7 @@ def exit_room():
         removeUserFromRoom(userId, roomId)
         return make_succ_response({"roomId": roomId, "exit": 1})
     else:  # 返回最新数据
-        return make_succ_response({"roomId": roomId, "exit": 0, "wasteList": wastes})
+        return make_succ_response({"roomId": roomId, "exit": 0, "wasteList": wasteConvertToJsonList(wastes)})
 
 
 # 查询房间历史
