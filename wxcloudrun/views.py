@@ -149,6 +149,23 @@ def notifyRoomChange(roomId, userId, latestWasteId):
         logInfo(f'notifyRoomChange exception:{e}')
 
 
+@app.route('/api/notifyWs', methods=['POST'])
+def notifyWs():
+    # 获取请求体参数
+    try:
+        params = request.get_json()
+        ty = params['ty']
+        roomId = params['rid']
+        if ty == 1:  # 通知
+            userId = params['uid']
+            latestWasteId = params['lid']
+            notifyRoomChange(roomId, userId, latestWasteId)
+        elif ty == 2:  # 释放
+            releaseRoomConnect(roomId)
+        return make_succ_empty_response()
+    except Exception as e:
+        logInfo(f'notifyWs exception:{e}')
+
 @app.route('/api/notifyRoomWs', methods=['POST'])
 def notifyRoomWs():
     # 获取请求体参数
