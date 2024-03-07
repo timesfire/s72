@@ -25,7 +25,7 @@ def background_task():
             item = serverMsgQueue.get(timeout=1)
             if item is not None:
                 app.logger.warn(f'开始发送消息:{item}')
-                resp = requests.post(url="http://fwajxmqp.msg-notify.2x8l7gg4.0lvje04z.com", json=item)
+                resp = requests.post(url="http://fwajxmqp.msg-notify.2x8l7gg4.0lvje04z.com/api/notifyWs", json=item)
                 app.logger.warn(f'开始发送消息:{resp.text}')
                 # if not wsc.sendMsg(json.dumps(item)):  # socket 发送失败，用http
                 #     app.logger.warn("发送失败")
