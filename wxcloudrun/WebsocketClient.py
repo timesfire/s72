@@ -12,6 +12,7 @@ class WebsocketCWrap:
                                          on_error=self.on_error,
                                          on_close=self.on_close)
         self.isOpen = False
+
     def on_message(self, ws, message):
         app.logger.warn(message)
 
@@ -31,7 +32,7 @@ class WebsocketCWrap:
     def run(self):
         self.ws.run_forever(reconnect=10)
 
-    def sendMsg(self,msg):
+    def sendMsg(self, msg):
         if self.isOpen:
             self.ws.send(msg)
             return True
