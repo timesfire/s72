@@ -1,6 +1,8 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import pymysql
+from gevent.queue import Queue
+
 import config
 from flask_sock import Sock
 # 因MySQLDB不支持Python3，使用pymysql扩展库代替MySQLDB库
@@ -28,7 +30,7 @@ app.config['SQLALCHEMY_POOL_RECYCLE'] = 4800
 
 # 初始化DB操作对象
 db = SQLAlchemy(app)
-
+serverMsgQueue = Queue()
 
 
 # 加载控制器

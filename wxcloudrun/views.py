@@ -9,7 +9,7 @@ from gevent.queue import Queue, Empty
 from simple_websocket import Server
 
 from run import app
-from wxcloudrun import dao, sock, db
+from wxcloudrun import dao, sock, db, serverMsgQueue
 from wxcloudrun.WebsocketClient import WebsocketCWrap
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid, insert_room, update_room_qr_byid, \
     query_user_by_openid, insert_user, update_user_by_id
@@ -36,7 +36,7 @@ scheduler.start()
 
 words = "12356789"
 roomMap = {}
-serverMsgQueue = Queue()
+
 
 
 class SocketQueue(Queue):
@@ -129,18 +129,9 @@ def getRoomSocketInfo():
         logInfo(f'getRoomSocketInfo exception:{e}')
 
 
-def background_task():
-    wsc = WebsocketCWrap()
-    wsc.run()
-    while True:
-        try:
-            item = serverMsgQueue.get(timeout=1)
-            if item is not None:
-                if not wsc.sendMsg(json.dumps(item)): # socket 发送失败，用http
-                    requests.post(url="http://msg-notify-88593-7-1323709807.sh.run.tcloudbase.com/notifyWs",json=item)
-        except Empty:
-            pass
-        gevent.sleep(0)
+
+
+
 
 
 def releaseRoomConnect(roomId):
