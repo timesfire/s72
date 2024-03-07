@@ -83,13 +83,12 @@ def notifyWsx(ws: Server):
                     logWarn(data)
                     js = json.loads(data)
                     _type = js['ty']  # type  1,通知 2，释放
+                    roomId = js['rid']  # roomId
                     if _type == 1:
-                        roomId = js['rid']  # roomId
                         userId = js['uid']  # userId
                         latestWasteId = js['lid']  # latestWasteId
                         notifyRoomChange(roomId, userId, latestWasteId)
                     elif _type == 2:
-                        roomId = js['rid']  # roomId
                         releaseRoomConnect(roomId)
                 except Exception as e:
                     logWarn(f"notifyWsx-js Exception：{e}")
