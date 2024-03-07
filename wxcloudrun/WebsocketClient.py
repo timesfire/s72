@@ -6,7 +6,7 @@ from wxcloudrun import app
 class WebsocketCWrap:
     def __init__(self):
         websocket.enableTrace(False)
-        self.ws = websocket.WebSocketApp("ws://msg-notify-88593-7-1323709807.sh.run.tcloudbase.com/notifyWsx",
+        self.ws = websocket.WebSocketApp("ws://fwajxmqp.msg-notify.2x8l7gg4.0lvje04z.com/notifyWsx",
                                          on_open=self.on_open,
                                          on_message=self.on_message,
                                          on_error=self.on_error,
