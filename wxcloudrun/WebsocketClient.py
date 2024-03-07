@@ -1,29 +1,39 @@
 import websocket
 
 
-class WebsocketClient:
+class WebsocketCWrap:
     def __init__(self):
-        self.ws = websocket.WebSocketApp("ws://echo.websocket.org/",
+        websocket.enableTrace(True)
+        self.ws = websocket.WebSocketApp("ws://msg-notify-88593-7-1323709807.sh.run.tcloudbase.com/notifyWsx",
+                                         on_open=self.on_open,
                                          on_message=self.on_message,
                                          on_error=self.on_error,
                                          on_close=self.on_close)
-    def on_message(ws, message):
-        print(f"Received message: {message}")
+        self.isOpen = False
+    def on_message(self, ws, message):
+        print(message)
 
-    def on_error(ws, error):
-        print(f"Error: {error}")
+    def on_error(self, ws, error):
+        print(error)
+        self.isOpen = False
 
-    def on_close(ws):
-        print("Connection closed")
+    def on_close(self, ws, close_status_code, close_msg):
+        print("### closed ###")
+        self.isOpen = False
 
-    def on_open(ws):
-        print("Connection opened")
-        ws.send("Hello, WebSocket!")
+    def on_open(self, ws):
+        print("Opened connection")
+        self.isOpen = True
 
     def run(self):
-        self.ws.run_forever()
+        self.ws.run_forever(reconnect=5)
+
+    def sendMsg(self,msg):
+        if self.isOpen:
+            self.ws.send(msg)
+            return True
+        return False
 
 
 if __name__ == "__main__":
-    websocket.enableTrace(True)
-    WebsocketClient().run()
+    WebsocketCWrap().run()
