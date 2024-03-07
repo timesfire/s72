@@ -35,6 +35,7 @@ scheduler.start()
 
 words = "12356789"
 roomMap = {}
+serverMsgQueue = Queue()
 
 
 class SocketQueue(Queue):
@@ -126,21 +127,33 @@ def getRoomSocketInfo():
     except Exception as e:
         logInfo(f'getRoomSocketInfo exception:{e}')
 
+def background_task():
+    while True:
+        try:
+            item = serverMsgQueue.get(timeout=1)
+            if item is not None:
+                pass
+        except Empty:
+            pass
+
+        gevent.sleep(0)
+
 
 def releaseRoomConnect(roomId):
-    queueList = roomMap.get(f'{roomId}')
-    if queueList is not None:
-        queueList.clear()
-        del roomMap[f'{roomId}']
+    serverMsgQueue.put({"rid": roomId})
+    # queueList = roomMap.get(f'{roomId}')
+    # if queueList is not None:
+    #     queueList.clear()
+    #     del roomMap[f'{roomId}']
 
 
 def notifyRoomChange(roomId, userId, latestWasteId):
     try:
-        # logInfo(f'notifyRoomChange: roomId:{roomId}-userId:{userId}-latestWasteId:{latestWasteId}')
-        queueList = roomMap.get(f'{roomId}')
-        if queueList is not None:
-            for q in queueList:
-                q.put(json.dumps({"l": latestWasteId, "u": userId}))
+        serverMsgQueue.put({"rid":roomId,"uid":userId,"lid":latestWasteId})
+        # queueList = roomMap.get(f'{roomId}')
+        # if queueList is not None:
+        #     for q in queueList:
+        #         q.put(json.dumps({"l": latestWasteId, "u": userId}))
     except Exception as e:
         logInfo(f'notifyRoomChange exception:{e}')
 
