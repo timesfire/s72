@@ -2,20 +2,20 @@ import datetime
 import json
 import random
 import threading
+
 import gevent
 import requests
 from flask import render_template, request
+from flask_apscheduler import APScheduler
 from gevent.queue import Queue, Empty
 from simple_websocket import Server
 
 from run import app
 from wxcloudrun import dao, sock, db, serverMsgQueue
-from wxcloudrun.WebsocketClient import WebsocketCWrap
 from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter, update_counterbyid, insert_room, update_room_qr_byid, \
     query_user_by_openid, insert_user, update_user_by_id
 from wxcloudrun.model import Counters, Room, User, RoomWasteBook
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
-from flask_apscheduler import APScheduler
 
 # 定时任务
 scheduler = APScheduler()
