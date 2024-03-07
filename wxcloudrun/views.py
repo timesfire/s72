@@ -72,7 +72,7 @@ def wsx(ws: Server):
 
 
 @sock.route('/notifyWsx')
-def wsx(ws: Server):
+def notifyWsx(ws: Server):
     try:
         while True:
             data = ws.receive()
