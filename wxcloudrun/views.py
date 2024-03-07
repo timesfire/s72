@@ -80,6 +80,7 @@ def notifyWsx(ws: Server):
                 break
             else:
                 try:
+                    logWarn(data)
                     js = json.loads(data)
                     _type = js['ty']  # type  1,通知 2，释放
                     if _type == 1:
