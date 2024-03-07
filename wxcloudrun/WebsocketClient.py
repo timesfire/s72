@@ -29,7 +29,7 @@ class WebsocketCWrap:
         self.isOpen = True
 
     def run(self):
-        self.ws.run_forever(reconnect=5)
+        self.ws.run_forever(reconnect=10)
 
     def sendMsg(self,msg):
         if self.isOpen:
