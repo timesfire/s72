@@ -167,31 +167,6 @@ def notifyWs():
     except Exception as e:
         logInfo(f'notifyWs exception:{e}')
 
-@app.route('/api/notifyRoomWs', methods=['POST'])
-def notifyRoomWs():
-    # 获取请求体参数
-    try:
-        params = request.get_json()
-        roomId = params['roomId']
-        userId = params['userId']
-        latestWasteId = params['latestWasteId']
-        notifyRoomChange(roomId, userId, latestWasteId)
-        return make_succ_empty_response()
-    except Exception as e:
-        logInfo(f'notifyRoom exception:{e}')
-
-
-@app.route('/api/releaseRoomWs', methods=['POST'])
-def releaseRoomWs():
-    # 获取请求体参数
-    try:
-        params = request.get_json()
-        roomId = params['roomId']
-        releaseRoomConnect(roomId)
-        return make_succ_empty_response()
-    except Exception as e:
-        logInfo(f'releaseRoom exception:{e}')
-
 
 def logInfo(msg):
     app.logger.warn(msg)
