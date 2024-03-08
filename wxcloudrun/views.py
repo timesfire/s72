@@ -135,7 +135,7 @@ def getRoomSocketInfo():
 
 
 def releaseRoomConnect(roomId):
-    serverMsgQueue.put({"ty": 1, "rid": roomId})
+    serverMsgQueue.put({"ty": 2, "rid": roomId})
     # queueList = roomMap.get(f'{roomId}')
     # if queueList is not None:
     #     queueList.clear()
