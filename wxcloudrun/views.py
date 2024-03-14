@@ -974,7 +974,7 @@ def roomHistory_v2():
         roomids.append(h.room_id)
         historyList.append(
             {'id': h.id, 'roomId': h.room_id, 'roomName': h.room_name, 'settleAmount': h.settle_amount, 'time': h.time.strftime('%Y-%m-%dT%H:%M:%S')})
-    queryRes = dao.query_room_member_by_roomids(roomids)
+    queryRes = dao.query_room_member_by_roomids(roomids, userId)
     roomMembers = []
     if queryRes is not None:
         for rm in queryRes:

@@ -374,9 +374,11 @@ def query_history_rooms_by_uid(userId):
     except OperationalError as e:
         logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
 
-def query_room_member_by_roomids(roomIds):
+
+def query_room_member_by_roomids(roomIds, userId):
     try:
-        return db.session.query(RoomMemberInfo.room_id, User.nickname).join(User, User.id == RoomMemberInfo.user_id,RoomMemberInfo.room_id in roomIds).all()
+        return db.session.query(RoomMemberInfo.room_id, User.nickname).filter(User.id == RoomMemberInfo.user_id, RoomMemberInfo.room_id.in_(roomIds),
+                                                                              RoomMemberInfo.user_id != userId).all()
     except OperationalError as e:
         logger.warning("query_room_member_by_roomids errorMsg= {} ".format(e))
         return None
