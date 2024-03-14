@@ -960,6 +960,28 @@ def roomHistory():
     return make_succ_response(historyList)
 
 
+# 查询房间历史
+@app.route('/api/roomHistory_v2', methods=['POST'])
+def roomHistory_v2():
+    # 获取请求体参数
+    params = request.get_json()
+    logInfo(f"roomHistory:{params}")
+    userId = params['userId']
+    historys = dao.query_history_rooms_by_uid(userId)
+    historyList = []
+    roomids = []
+    for h in historys:
+        roomids.append(h.room_id)
+        historyList.append(
+            {'id': h.id, 'roomId': h.room_id, 'roomName': h.room_name, 'settleAmount': h.settle_amount, 'time': h.time.strftime('%Y-%m-%dT%H:%M:%S')})
+    queryRes = dao.query_room_member_by_roomids(roomids)
+    roomMembers = []
+    if queryRes is not None:
+        for rm in queryRes:
+            roomMembers.append({'roomId': rm[0], 'nickname': rm[1]})
+    return make_succ_response({"historyList": historyList, "roomMembers": roomMembers})
+
+
 # 查询个人的对战统计情况 todo 数据是否可以合到其它的接口
 @app.route('/api/getAchievement', methods=['POST'])
 def getAchievement():
