@@ -937,7 +937,7 @@ def exit_room():
     calculateScore(userScores, userStatus,wastes,curTeaFeeAmount, curTeaFeeLimit, curTeaFeeRatio)
 
     # 验证分数是否为0
-    if userScores[f'{userId}'] == 0:
+    if userScores.get(f'{userId}', 0) == 0:
         # 同意退出 
         removeUserFromRoom(userId, roomId)
         return make_succ_response({"roomId": roomId, "exit": 1})
