@@ -402,7 +402,7 @@ def query_using_roomid_by_uid(uid):
 def query_achievement_by_uid(userId):
     try:
         totalCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId).count()
-        successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.settle_amount > 0).count()
+        successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.settle_amount >= 0).count()
         return {"totalCount": totalCount, "successCount": successCount}
     except OperationalError as e:
         logger.warning("query_achievement_by_uid errorMsg= {} ".format(e))
