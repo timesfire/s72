@@ -389,6 +389,11 @@ def batchCreateRoom():
     for i in range(1, 500):
         createRoom("100", 0)
 
+@app.route('/api/batchCreateRoom101', methods=['POST'])
+def batchCreateRoom101():
+    for i in range(1, 500):
+        createRoom("101", 0)
+
 
 def appSecret(myapp):
     if myapp == "100":
