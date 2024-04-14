@@ -987,6 +987,20 @@ def roomHistory_v2():
     return make_succ_response({"historyList": historyList, "roomMembers": roomMembers})
 
 
+# 删除房间历史
+@app.route('/api/deleteHistory', methods=['POST'])
+def deleteHistory():
+    # 获取请求体参数
+    params = request.get_json()
+    logInfo(f"roomHistory:{params}")
+    userId = params['userId']
+    roomId = params['roomId']
+    if dao.delete_history_room_by_uid_roomid(userId,roomId):
+        return make_succ_response({"deleteRes": 1})
+    else:
+        return make_succ_response({"deleteRes": 0})
+
+
 # 查询个人的对战统计情况 todo 数据是否可以合到其它的接口
 @app.route('/api/getAchievement', methods=['POST'])
 def getAchievement():

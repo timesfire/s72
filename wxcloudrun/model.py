@@ -78,7 +78,8 @@ class RoomMemberInfo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
     room_id = db.Column(db.Integer)
-    room_name= db.Column(db.String(20))
+    room_name = db.Column(db.String(20))
     settle_amount = db.Column(db.Float)
     status = db.Column(db.Integer)   # 1进入，0退出
     time = db.Column('time', db.TIMESTAMP, nullable=False, default=datetime.now())
+    user_delete = db.Column(db.Integer)   # 1 用户删除，0未删除

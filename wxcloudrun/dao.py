@@ -370,9 +370,21 @@ def query_users_in_room(roomId, status=None):
 # 获取房间历史记录
 def query_history_rooms_by_uid(userId):
     try:
-        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0).order_by(RoomMemberInfo.time.desc()).all()
+        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0,RoomMemberInfo.user_delete != 1).order_by(RoomMemberInfo.time.desc()).all()
     except OperationalError as e:
         logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
+
+def delete_history_room_by_uid_roomid(userId,roomId):
+    try:
+        roomMemberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.room_id == roomId).first()
+        roomMemberInfo.user_delete = 1
+        db.session.flush()
+        db.session.commit()
+        return True
+    except OperationalError as e:
+        logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
+        return False
+
 
 
 def query_room_member_by_roomids(roomIds, userId):
