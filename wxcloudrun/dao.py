@@ -245,7 +245,7 @@ def add_user_to_room(uid, roomId):
             if room is None:
                 logger.info("add_user_to_room 查询roomId:{} 为 None".format(roomId))
                 return
-            memberInfo = RoomMemberInfo(room_id=room.id,user_id=uid,room_name=room.name,status=1,settle_amount=0,time=datetime.now())
+            memberInfo = RoomMemberInfo(room_id=room.id,user_id=uid,room_name=room.name,status=1,settle_amount=0,time=datetime.now(),user_delete=0)
             db.session.add(memberInfo)
             db.session.commit()
         else:
