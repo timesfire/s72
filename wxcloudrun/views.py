@@ -580,7 +580,7 @@ def wasteConvertToJsonList(wastes):
         wasteList.append(
             {"id": w.id, "roomId": w.room_id, "outlayUserId": w.outlay_user_id, "receiveUserId": w.receive_user_id, "score": w.score, "type": w.type,
              "userId": w.user_id, "userNickname": w.user_nickname, "userAvatarUrl": w.user_avatar_url, "settleInfo": w.settle_info, "msg": w.msg,
-             "teaRatio":w.tea_ratio,"teaLimit":w.tea_limit, "time": w.time.strftime('%Y-%m-%dT%H:%M:%S')})
+             "teaRatio":w.tea_ratio,"teaLimit":w.tea_limit, "time": w.time.strftime('%Y-%m-%dT%H:%M:%S'),"fmtTime":w.time.strftime('%H:%M')})
     return wasteList
 
 
