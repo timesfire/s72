@@ -156,14 +156,17 @@ def notifyRoomChange(roomId, userId, latestWasteId):
 # 清理房间
 @app.route('/testclear')
 def testclear():
-    clearRoom()
+    ftime = request.values.get("ftime")
+    clearRoom(ftime)
     return make_succ_empty_response()
 
 
-def clearRoom():
+def clearRoom(ftime=None):
     logInfo(f'clearRoom - {threading.current_thread().name}')
     # 查询使用时长 > 3小时的 在使用中的房间
     flagTime = datetime.datetime.now() - datetime.timedelta(hours=3)
+    if ftime:
+        flagTime = ftime
     rooms = dao.query_using_room_by_usetime(flagTime)
     if rooms is None:
         logInfo(f'flagTime:{flagTime} - rooms:null')
