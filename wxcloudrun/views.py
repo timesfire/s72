@@ -156,39 +156,45 @@ def notifyRoomChange(roomId, userId, latestWasteId):
 # 清理房间
 @app.route('/testclear')
 def testclear():
+    ftime = request.values.get("ftime")
     clearRoom()
     return make_succ_empty_response()
 
 
-def clearRoom():
+def clearRoom(ftime=None):
     logInfo(f'clearRoom - {threading.current_thread().name}')
     # 查询使用时长 > 3小时的 在使用中的房间
     flagTime = datetime.datetime.now() - datetime.timedelta(hours=3)
+    if ftime:
+        flagTime = ftime
     rooms = dao.query_using_room_by_usetime(flagTime)
     if rooms is None:
         logInfo(f'flagTime:{flagTime} - rooms:null')
         return
     logInfo(f'flagTime:{flagTime} - rooms:{len(rooms)}')
     for r in rooms:
-        latestWaste = dao.get_latest_wastes_from_room(r.id)
-        if latestWaste is not None:
-            logInfo(f'开始清理房间 roomId:{r.id} -- name:{r.name} -- latestWasteTime:{latestWaste.time} -start--')
-        else:
-            logInfo(f'开始清理房间 roomId:{r.id} -- name:{r.name} -- latestWasteTime:null -start--')
-        if latestWaste is None or latestWaste.time < flagTime:
-            # 开始清理房间  
-            userScores = {}
-            if latestWaste is not None:  # 存在最后一条数据才可能存在更多流水
-                wlist = dao.get_outlay_wastes_from_room(r.id)
-                if wlist is not None:
-                    for w in wlist:
-                        userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
-                        userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score
-            logInfo(f'userScores:{userScores}')
-            dao.autoReleaseRoom(r.id, userScores)
-            # 移除 websocket 连接
-            releaseRoomConnect(r.id)
-            logInfo(f'{r.id} -- {r.name}---end--')
+        try:
+            latestWaste = dao.get_latest_wastes_from_room(r.id)
+            if latestWaste is not None:
+                logInfo(f'开始清理房间 roomId:{r.id} -- name:{r.name} -- latestWasteTime:{latestWaste.time} -start--')
+            else:
+                logInfo(f'开始清理房间 roomId:{r.id} -- name:{r.name} -- latestWasteTime:null -start--')
+            if latestWaste is None or latestWaste.time < flagTime:
+                # 开始清理房间
+                userScores = {}
+                if latestWaste is not None:  # 存在最后一条数据才可能存在更多流水
+                    wlist = dao.get_outlay_wastes_from_room(r.id)
+                    if wlist is not None:
+                        for w in wlist:
+                            userScores[f'{w.outlay_user_id}'] = userScores.get(f'{w.outlay_user_id}', 0) - w.score
+                            userScores[f'{w.receive_user_id}'] = userScores.get(f'{w.receive_user_id}', 0) + w.score
+                logInfo(f'userScores:{userScores}')
+                dao.autoReleaseRoom(r.id, userScores)
+                # 移除 websocket 连接
+                releaseRoomConnect(r.id)
+                logInfo(f'{r.id} -- {r.name}---end--')
+        except Exception as e:
+            logInfo(f'清理失败 {r.id}：{e}')
     
 
 def logInfo(msg):
