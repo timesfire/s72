@@ -1,12 +1,13 @@
 import json
 import logging
+import time
 from datetime import datetime
 from sqlalchemy.sql import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.attributes import flag_modified
 
 from wxcloudrun import db
-from wxcloudrun.model import Counters, Room, User,RoomWasteBook,RoomMemberInfo
+from wxcloudrun.model import Counters, Room, User, RoomWasteBook, RoomMemberInfo, GameInfo
 
 # 初始化日志
 logger = logging.getLogger('log')
@@ -419,3 +420,34 @@ def query_achievement_by_uid(userId):
     except OperationalError as e:
         logger.warning("query_achievement_by_uid errorMsg= {} ".format(e))
 
+# 查询游戏数据
+def query_game_info(wx_openid):
+    try:
+        return GameInfo.query.filter(GameInfo.wx_openid == wx_openid).first()
+    except OperationalError as e:
+        logger.warning("query_game_info errorMsg= {} ".format(e))
+
+# 更新游戏数据
+def update_game_info(wx_openid, level, power):
+    try:
+        gameInfo = GameInfo.query.filter(GameInfo.wx_openid == wx_openid).first()
+        if gameInfo is None:
+            gameInfo = GameInfo(wx_openid=wx_openid, v=int(time.time()), level=level, power=power)
+            db.session.add(gameInfo)
+            db.session.commit()
+        else:
+            gameInfo.v = int(time.time())
+            gameInfo.power = power
+
+            # 将JSON字符串转换为字典
+            dict1 = json.loads(gameInfo.level)
+            dict2 = json.loads(level)
+
+            # 合并两个字典，dict2中的值会覆盖dict1中相同键的值
+            dict1.update(dict2)
+            gameInfo.level = json.dumps(dict1)
+            db.session.flush()
+            db.session.commit()
+
+    except OperationalError as e:
+        logger.warning("update_game_info errorMsg= {} ".format(e))

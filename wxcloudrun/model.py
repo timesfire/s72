@@ -83,3 +83,15 @@ class RoomMemberInfo(db.Model):
     status = db.Column(db.Integer)   # 1进入，0退出
     time = db.Column('time', db.TIMESTAMP, nullable=False, default=datetime.now())
     user_delete = db.Column(db.Integer)   # 1 用户删除，0未删除
+
+class GameInfo(db.Model):
+    # 游戏数据
+    __tablename__ = 'game_info'
+
+    # 设定结构体对应表格的字段
+    id = db.Column(db.Integer, primary_key=True)
+    wx_openid = db.Column(db.String(100))
+    # v = db.Column(db.Integer)
+    v = db.Column(db.Integer)
+    level = db.Column(db.String(1000))
+    power = db.Column(db.Integer)

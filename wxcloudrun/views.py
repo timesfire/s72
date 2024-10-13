@@ -453,6 +453,31 @@ def getQrCode(myapp, roomId, roomName):
     return downloadUrl
 
 
+@app.route('/api/getGameData', methods=['POST'])
+def getGameData():
+    # 获取请求体参数
+    params = request.get_json()
+    logWarn(f'getGameData:{params}')
+    openid = params.get("id")
+    gameInfo = dao.query_game_info(openid)
+    if gameInfo:
+        gameInfo_dict = gameInfo.__dict__
+        return make_succ_response(gameInfo_dict)
+    else:
+        return make_succ_response({})
+
+@app.route('/api/updateGameData', methods=['POST'])
+def updateGameData():
+    # 获取请求体参数
+    params = request.get_json()
+    logWarn(f'getGameData:{params}')
+    openid = params.get("id")
+    power = params.get("power")
+    level = params.get("level")
+    dao.update_game_info(openid, level, power)
+    return make_succ_response("success")
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
     # 获取请求体参数
