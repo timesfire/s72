@@ -446,6 +446,7 @@ def update_game_info(wx_openid, level, power):
             # 合并两个字典，dict2中的值会覆盖dict1中相同键的值
             dict1.update(dict2)
             gameInfo.level = json.dumps(dict1)
+            logger.warning(gameInfo.level)
             db.session.flush()
             db.session.commit()
 

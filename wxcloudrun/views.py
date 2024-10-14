@@ -470,7 +470,7 @@ def getGameData():
 def updateGameData():
     # 获取请求体参数
     params = request.get_json()
-    logWarn(f'getGameData:{params}')
+    logWarn(f'updateGameData:{params}')
     openid = params.get("id")
     power = params.get("power")
     level = params.get("level")
