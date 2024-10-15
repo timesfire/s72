@@ -442,12 +442,12 @@ def update_game_info(wx_openid, level, power):
             # 将JSON字符串转换为字典
             if gameInfo.level is not None:
                 dict1 = json.loads(gameInfo.level)
-                dict2 = json.loads(level)
+                dict2 = level
                 # 合并两个字典，dict2中的值会覆盖dict1中相同键的值
                 dict1.update(dict2)
                 gameInfo.level = json.dumps(dict1)
             else:
-                gameInfo.level = level
+                gameInfo.level = json.dumps(level)
             logger.warning(gameInfo.level)
             db.session.flush()
             db.session.commit()
