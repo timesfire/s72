@@ -432,7 +432,7 @@ def update_game_info(wx_openid, level, power):
     try:
         gameInfo = GameInfo.query.filter(GameInfo.wx_openid == wx_openid).first()
         if gameInfo is None:
-            gameInfo = GameInfo(wx_openid=wx_openid, v=int(time.time()), level=level, power=power)
+            gameInfo = GameInfo(wx_openid=wx_openid, v=int(time.time()), level=json.dumps(level), power=power)
             db.session.add(gameInfo)
             db.session.commit()
         else:
@@ -440,12 +440,14 @@ def update_game_info(wx_openid, level, power):
             gameInfo.power = power
 
             # 将JSON字符串转换为字典
-            dict1 = json.loads(gameInfo.level)
-            dict2 = json.loads(level)
-
-            # 合并两个字典，dict2中的值会覆盖dict1中相同键的值
-            dict1.update(dict2)
-            gameInfo.level = json.dumps(dict1)
+            if gameInfo.level is not None:
+                dict1 = json.loads(gameInfo.level)
+                dict2 = json.loads(level)
+                # 合并两个字典，dict2中的值会覆盖dict1中相同键的值
+                dict1.update(dict2)
+                gameInfo.level = json.dumps(dict1)
+            else:
+                gameInfo.level = level
             logger.warning(gameInfo.level)
             db.session.flush()
             db.session.commit()
