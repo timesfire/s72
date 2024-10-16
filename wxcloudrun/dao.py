@@ -420,22 +420,28 @@ def query_achievement_by_uid(userId):
     except OperationalError as e:
         logger.warning("query_achievement_by_uid errorMsg= {} ".format(e))
 
+
 # 查询游戏数据
-def query_game_info(wx_openid):
+def query_game_info(uid, wx_openid):
     try:
-        return GameInfo.query.filter(GameInfo.wx_openid == wx_openid).first()
+        if uid is not None:
+            gameInfo = GameInfo.query.filter(GameInfo.uid == uid).first()
+        else:
+            gameInfo = GameInfo.query.filter(GameInfo.wx_openid == wx_openid).first()
+            if gameInfo is None:
+                gameInfo = GameInfo(wx_openid=wx_openid, v=int(time.time()))
+                db.session.add(gameInfo)
+                db.session.commit()
+        return gameInfo
     except OperationalError as e:
         logger.warning("query_game_info errorMsg= {} ".format(e))
 
+
 # 更新游戏数据
-def update_game_info(wx_openid, level, power):
+def update_game_info(uid, level, power):
     try:
-        gameInfo = GameInfo.query.filter(GameInfo.wx_openid == wx_openid).first()
-        if gameInfo is None:
-            gameInfo = GameInfo(wx_openid=wx_openid, v=int(time.time()), level=json.dumps(level), power=power)
-            db.session.add(gameInfo)
-            db.session.commit()
-        else:
+        gameInfo = GameInfo.query.filter(GameInfo.uid == uid).first()
+        if gameInfo is not None:
             gameInfo.v = int(time.time())
             gameInfo.power = power
 

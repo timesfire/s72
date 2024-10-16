@@ -458,23 +458,41 @@ def getGameData():
     # 获取请求体参数
     params = request.get_json()
     logWarn(f'getGameData:{params}')
-    openid = params.get("openid")
-    gameInfo = dao.query_game_info(openid)
-    if gameInfo:
-        gameInfo_dict = gameInfo.__dict__
-        return make_succ_response(gameInfo_dict)
-    else:
-        return make_succ_response({})
+    code = params.get("code")
+    uid = params.get("uid")
+    if uid is not None:
+        gameInfo = dao.query_game_info(uid, None)
+        if gameInfo is not None:
+            return make_succ_response(gameInfo.__dict__)
+        else:
+            logInfo(f"userId: {uid} 用户不存在")
+            return make_err_response("用户不存在")
+    elif code is not None:
+        APPID = "wxe48b0f7f60ba5508"
+        SECRET = "fb71e59ba951d0d2be8e0ad9d02933a4"
+        resp = requests.get(
+            url=f"http://api.weixin.qq.com/sns/jscode2session?appid={APPID}&secret={SECRET}&js_code={code}&grant_type=authorization_code")
+        jsonData = resp.json()
+        if jsonData.get('openid') is not None:
+            openId = jsonData['openid']
+            gameInfo = dao.query_game_info(None, openId)
+            if gameInfo is not None:
+                return make_succ_response(gameInfo.__dict__)
+            else:
+                logInfo(f"openId:{openId} 数据操作失败")
+                return make_err_response("数据操作失败")
+    return make_err_response("未知异常")
+
 
 @app.route('/api/updateGameData', methods=['POST'])
 def updateGameData():
     # 获取请求体参数
     params = request.get_json()
     logWarn(f'updateGameData:{params}')
-    openid = params.get("id")
+    uid = params.get("id")
     power = params.get("power")
     level = params.get("level")
-    dao.update_game_info(openid, level, power)
+    dao.update_game_info(uid, level, power)
     return make_succ_response("success")
 
 

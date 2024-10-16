@@ -89,7 +89,7 @@ class GameInfo(db.Model):
     __tablename__ = 'game_info'
 
     # 设定结构体对应表格的字段
-    id = db.Column(db.Integer, primary_key=True)
+    uid = db.Column(db.Integer, primary_key=True)
     wx_openid = db.Column(db.String(100))
     # v = db.Column(db.Integer)
     v = db.Column(db.Integer)
