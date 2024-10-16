@@ -463,7 +463,7 @@ def getGameData():
     if uid is not None:
         gameInfo = dao.query_game_info(uid, None)
         if gameInfo is not None:
-            return make_succ_response(gameInfo.__dict__)
+            return make_succ_response({"uid": gameInfo.uid, "v": gameInfo.v, "level": gameInfo.level, "power": gameInfo.power})
         else:
             logInfo(f"userId: {uid} 用户不存在")
             return make_err_response("用户不存在")
@@ -477,7 +477,7 @@ def getGameData():
             openId = jsonData['openid']
             gameInfo = dao.query_game_info(None, openId)
             if gameInfo is not None:
-                return make_succ_response(gameInfo.__dict__)
+                return make_succ_response({"uid":gameInfo.uid,"v":gameInfo.v,"level":gameInfo.level,"power":gameInfo.power})
             else:
                 logInfo(f"openId:{openId} 数据操作失败")
                 return make_err_response("数据操作失败")
