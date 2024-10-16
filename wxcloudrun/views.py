@@ -458,7 +458,7 @@ def getGameData():
     # 获取请求体参数
     params = request.get_json()
     logWarn(f'getGameData:{params}')
-    openid = params.get("id")
+    openid = params.get("openid")
     gameInfo = dao.query_game_info(openid)
     if gameInfo:
         gameInfo_dict = gameInfo.__dict__
