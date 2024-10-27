@@ -156,7 +156,6 @@ def notifyRoomChange(roomId, userId, latestWasteId):
 # 清理房间
 @app.route('/testclear')
 def testclear():
-    ftime = request.values.get("ftime")
     clearRoom()
     return make_succ_empty_response()
 
