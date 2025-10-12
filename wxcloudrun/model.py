@@ -93,5 +93,5 @@ class GameInfo(db.Model):
     wx_openid = db.Column(db.String(100))
     # v = db.Column(db.Integer)
     v = db.Column(db.Integer)
-    level = db.Column(db.String(1000))
+    level = db.Column(db.String(5000))
     power = db.Column(db.Integer)
