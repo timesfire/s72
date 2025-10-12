@@ -427,6 +427,7 @@ def getQrCode(myapp, roomId, roomName):
         "env": "prod-3gvgzn5xf978a9ac",
         "path": tempFilePath
     })
+
     uploadInfoJson = json.loads(uploadInfo.content)
     # 2、开始上传
 
