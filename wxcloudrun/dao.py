@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import datetime
 from sqlalchemy.sql import text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.attributes import flag_modified
 
 from wxcloudrun import db
@@ -21,7 +21,8 @@ def query_counterbyid(id):
     """
     try:
         return Counters.query.filter(Counters.id == id).first()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_counterbyid errorMsg= {} ".format(e))
         return None
 
@@ -37,7 +38,8 @@ def delete_counterbyid(id):
             return
         db.session.delete(counter)
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("delete_counterbyid errorMsg= {} ".format(e))
 
 
@@ -49,7 +51,8 @@ def insert_counter(counter):
     try:
         db.session.add(counter)
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("insert_counter errorMsg= {} ".format(e))
 
 
@@ -64,7 +67,8 @@ def update_counterbyid(counter):
             return
         db.session.flush()
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("update_counterbyid errorMsg= {} ".format(e))
 
 # ----------- room---------
@@ -76,7 +80,8 @@ def query_roombyid(id):
     """
     try:
         return Room.query.filter(Room.id == id).first()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_roombyid errorMsg= {} ".format(e))
         return None
 
@@ -89,7 +94,8 @@ def query_using_roombyid(id):
     """
     try:
         return Room.query.filter(Room.id == id, Room.status == 1).first()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_using_roombyid errorMsg= {} ".format(e))
         return None
 
@@ -101,7 +107,8 @@ def query_using_room_by_usetime(time):
     """
     try:
         return Room.query.filter(Room.status == 1,Room.use_at<time).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_using_room_by_usetime errorMsg= {} ".format(e))
         return None
 
@@ -120,7 +127,8 @@ def get_empty_room_and_update_status(myapp):
             db.session.flush()
             db.session.commit()
         return room
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("get_empty_room_and_update_status errorMsg= {} ".format(e))
         return None
 
@@ -132,7 +140,8 @@ def insert_room(room):
     try:
         db.session.add(room)
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("insert_room errorMsg= {} ".format(e))
         # print("insert_room errorMsg= {} ".format(e))
 
@@ -149,7 +158,8 @@ def update_room_qr_byid(roomId, qr):
         room.share_qr = qr
         db.session.flush()
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("update_room_qr_byid errorMsg= {} ".format(e))
 
 
@@ -162,7 +172,8 @@ def updateUserLatestRoomId(userId, roomId):
         user.latest_room_id = roomId
         db.session.flush()
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("updateUserLatestRoomId errorMsg= {} ".format(e))
 # -------------user-----
 
@@ -174,7 +185,8 @@ def insert_user(user):
     try:
         db.session.add(user)
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("insert_user errorMsg= {} ".format(e))
 
 
@@ -187,7 +199,8 @@ def query_user_by_openid(openId,myapp):
     """
     try:
         return User.query.filter(User.wx_openid == openId,User.myapp==myapp).first()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_user_by_openid errorMsg= {} ".format(e))
         return None
 
@@ -199,7 +212,8 @@ def query_user_by_id(id):
     """
     try:
         return User.query.filter(User.id == id).first()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_user_by_id errorMsg= {} ".format(e))
         return None
 
@@ -211,7 +225,8 @@ def query_users_by_ids(ids):
     """
     try:
         return User.query.filter(User.id.in_(ids)).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_users_by_ids errorMsg= {} ".format(e))
         return None
 
@@ -233,7 +248,8 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
         db.session.flush()
         db.session.commit()
         return user
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("update_user_by_id errorMsg= {} ".format(e))
         return None
 
@@ -258,7 +274,8 @@ def add_user_to_room(uid, roomId):
         #     flag_modified(room, "user_ids")
         #     db.session.flush()
         #     db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("add_user_to_room errorMsg= {} ".format(e))
 
 
@@ -268,7 +285,7 @@ def autoReleaseRoom(roomId,userScores):
         if roomMembers is not None:
             for member in roomMembers:
                 user = User.query.filter(User.id == member.user_id).first()
-                if user is not None:
+                if user is not None and user.latest_room_id == roomId:
                     user.latest_room_id = 0
                 member.status = 0
                 member.settle_amount = userScores.get(f'{member.user_id}',0)
@@ -278,7 +295,8 @@ def autoReleaseRoom(roomId,userScores):
             room.close_at = datetime.now()
         db.session.flush()
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("autoReleaseRoom errorMsg= {} ".format(e))
         return None
 
@@ -293,7 +311,7 @@ def autoReleaseRoom(roomId,userScores):
 #             flag_modified(room, "user_ids")
 #             db.session.flush()
 #             db.session.commit()
-#     except OperationalError as e:
+#     except SQLAlchemyError as e:
 #         logger.info("rm_user_from_room errorMsg= {} ".format(e))
 
 
@@ -303,35 +321,40 @@ def add_waste_to_room(roomWasteBook):
     try:
         db.session.add(roomWasteBook)
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("add_waste_to_room errorMsg= {} ".format(e))
 # 批量添加
 def add_all_wastes_to_room(roomWasteList):
     try:
         db.session.add_all(roomWasteList)
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("add_all_wastes_to_room errorMsg= {} ".format(e))
 
 # 根据最后记录ID返回最新流水
 def get_wastes_from_room_by_latestid(roomId:int,latestWasteId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.id>latestWasteId).order_by(RoomWasteBook.id).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
 # 查询房间的最后一条流水
 def get_latest_wastes_from_room(roomId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId).order_by(RoomWasteBook.id.desc()).first()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("get_latest_wastes_from_room errorMsg= {} ".format(e))
 
 # 查询房间的支付流水
 def get_outlay_wastes_from_room(roomId:int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.type==1).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("get_outlay_wastes_from_room errorMsg= {} ".format(e))
 
 # -------------room waste book- end----
@@ -342,20 +365,17 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
         # 创建参数化查询的查询字符串
         sql = text("SELECT COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND receive_user_id = :userId AND room_id = :roomId),0) - COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND outlay_user_id = :userId AND room_id=:roomId),0) AS score")
         # 执行参数化查询
-        result = db.engine.execute(sql, roomId=latestRoomId, userId=userId)
-        curScore = 0
-        for r in result: # 只有一条数据 todo 去掉for
-            curScore = r[0]
-        # curScore = result['score']
+        curScore = db.session.execute(sql, {"roomId": latestRoomId, "userId": userId}).scalar() or 0
 
         memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id==userId,RoomMemberInfo.room_id==latestRoomId).first()
         if memberInfo is None:
             return
-        memberInfo.settle_amount=curScore
-        memberInfo.status=0
+        memberInfo.settle_amount = curScore
+        memberInfo.status = 0
         db.session.flush()
         db.session.commit()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("rm_user_from_room_and_update_settle_score errorMsg= {} ".format(e))
 
 
@@ -365,14 +385,16 @@ def query_users_in_room(roomId, status=None):
         if status is None:
             return RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId).all()
         return RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId, RoomMemberInfo.status == status).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
 # 获取房间历史记录
 def query_history_rooms_by_uid(userId):
     try:
         return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0,RoomMemberInfo.user_delete != 1).order_by(RoomMemberInfo.time.desc()).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
 
 def delete_history_room_by_uid_roomid(userId,roomId):
@@ -382,7 +404,8 @@ def delete_history_room_by_uid_roomid(userId,roomId):
         db.session.flush()
         db.session.commit()
         return True
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
         return False
 
@@ -392,7 +415,8 @@ def query_room_member_by_roomids(roomIds, userId):
     try:
         return db.session.query(RoomMemberInfo.room_id, User.nickname).filter(User.id == RoomMemberInfo.user_id, RoomMemberInfo.room_id.in_(roomIds),
                                                                               RoomMemberInfo.user_id != userId).all()
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_room_member_by_roomids errorMsg= {} ".format(e))
         return None
 
@@ -407,7 +431,8 @@ def query_using_roomid_by_uid(uid):
         if roomMember is not None:
             return roomMember.room_id
         return None
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_using_roomid_by_uid errorMsg= {} ".format(e))
         return None
 
@@ -417,7 +442,8 @@ def query_achievement_by_uid(userId):
         totalCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.user_delete != 1).count()
         successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.user_delete != 1, RoomMemberInfo.settle_amount >= 0).count()
         return {"totalCount": totalCount, "successCount": successCount}
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_achievement_by_uid errorMsg= {} ".format(e))
 
 
@@ -433,7 +459,8 @@ def query_game_info(uid, wx_openid):
                 db.session.add(gameInfo)
                 db.session.commit()
         return gameInfo
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("query_game_info errorMsg= {} ".format(e))
 
 
@@ -458,5 +485,6 @@ def update_game_info(uid, level, power):
             db.session.flush()
             db.session.commit()
 
-    except OperationalError as e:
+    except SQLAlchemyError as e:
+        db.session.rollback()
         logger.warning("update_game_info errorMsg= {} ".format(e))
