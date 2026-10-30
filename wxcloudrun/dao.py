@@ -70,6 +70,7 @@ def update_counterbyid(counter):
         db.session.rollback()
         logger.warning("update_counterbyid errorMsg= {} ".format(e))
 
+
 # ----------- room---------
 def query_roombyid(id):
     """
@@ -98,6 +99,7 @@ def query_using_roombyid(id):
         logger.warning("query_using_roombyid errorMsg= {} ".format(e))
         return None
 
+
 def query_using_room_by_usetime(time):
     """
     查询待关闭的房间
@@ -105,7 +107,7 @@ def query_using_room_by_usetime(time):
     :return: Room实体
     """
     try:
-        return Room.query.filter(Room.status == 1,Room.use_at<time).all()
+        return Room.query.filter(Room.status == 1, Room.use_at < time).all()
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("query_using_room_by_usetime errorMsg= {} ".format(e))
@@ -119,7 +121,7 @@ def get_empty_room_and_update_status(myapp):
     :return: Room实体列表
     """
     try:
-        room = Room.query.filter(Room.status == 0,Room.myapp == myapp).with_for_update().first()
+        room = Room.query.filter(Room.status == 0, Room.myapp == myapp).with_for_update().first()
         if room is not None:
             room.status = 1
             room.use_at = datetime.now()
@@ -129,6 +131,7 @@ def get_empty_room_and_update_status(myapp):
         db.session.rollback()
         logger.warning("get_empty_room_and_update_status errorMsg= {} ".format(e))
         return None
+
 
 def insert_room(room):
     """
@@ -171,6 +174,8 @@ def updateUserLatestRoomId(userId, roomId):
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("updateUserLatestRoomId errorMsg= {} ".format(e))
+
+
 # -------------user-----
 
 def insert_user(user):
@@ -186,19 +191,19 @@ def insert_user(user):
         logger.warning("insert_user errorMsg= {} ".format(e))
 
 
-
-def query_user_by_openid(openId,myapp):
+def query_user_by_openid(openId, myapp):
     """
     根据openid查询User实体
     :param openId: User的openId
     :return: User实体
     """
     try:
-        return User.query.filter(User.wx_openid == openId,User.myapp==myapp).first()
+        return User.query.filter(User.wx_openid == openId, User.myapp == myapp).first()
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("query_user_by_openid errorMsg= {} ".format(e))
         return None
+
 
 def query_user_by_id(id):
     """
@@ -213,6 +218,7 @@ def query_user_by_id(id):
         logger.warning("query_user_by_id errorMsg= {} ".format(e))
         return None
 
+
 def query_users_by_ids(ids):
     """
     根据ids查询User实体列表
@@ -226,7 +232,8 @@ def query_users_by_ids(ids):
         logger.warning("query_users_by_ids errorMsg= {} ".format(e))
         return None
 
-def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
+
+def update_user_by_id(userId, nickname, avatarUrl, avatarFileId):
     """
     根据ID更新user的值
     :param nickname 昵称
@@ -251,17 +258,18 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
 
 def add_user_to_room(uid, roomId):
     try:
-        memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id==uid,RoomMemberInfo.room_id==roomId).first()
+        memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == uid, RoomMemberInfo.room_id == roomId).first()
         if memberInfo is None:
             room = query_roombyid(roomId)
             if room is None:
                 logger.info("add_user_to_room 查询roomId:{} 为 None".format(roomId))
                 return
-            memberInfo = RoomMemberInfo(room_id=room.id,user_id=uid,room_name=room.name,status=1,settle_amount=0,time=datetime.now(),user_delete=0)
+            memberInfo = RoomMemberInfo(room_id=room.id, user_id=uid, room_name=room.name, status=1, settle_amount=0, time=datetime.now(),
+                                        user_delete=0)
             db.session.add(memberInfo)
             db.session.commit()
         else:
-            memberInfo.status=1
+            memberInfo.status = 1
             db.session.commit()
         # if not room.user_ids.__contains__(uid):
         #     room.user_ids.append(uid)
@@ -273,7 +281,7 @@ def add_user_to_room(uid, roomId):
         logger.warning("add_user_to_room errorMsg= {} ".format(e))
 
 
-def autoReleaseRoom(roomId,userScores):
+def autoReleaseRoom(roomId, userScores):
     try:
         roomMembers = RoomMemberInfo.query.filter(RoomMemberInfo.room_id == roomId, RoomMemberInfo.status == 1).all()
         if roomMembers is not None:
@@ -282,7 +290,7 @@ def autoReleaseRoom(roomId,userScores):
                 if user is not None and user.latest_room_id == roomId:
                     user.latest_room_id = 0
                 member.status = 0
-                member.settle_amount = userScores.get(f'{member.user_id}',0)
+                member.settle_amount = userScores.get(f'{member.user_id}', 0)
         room = Room.query.filter(Room.id == roomId).first()
         if room is not None:
             room.status = 2
@@ -292,6 +300,7 @@ def autoReleaseRoom(roomId,userScores):
         db.session.rollback()
         logger.warning("autoReleaseRoom errorMsg= {} ".format(e))
         return None
+
 
 # def rm_user_from_room(uid, roomId):
 #     try:
@@ -317,6 +326,8 @@ def add_waste_to_room(roomWasteBook):
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("add_waste_to_room errorMsg= {} ".format(e))
+
+
 # 批量添加
 def add_all_wastes_to_room(roomWasteList):
     try:
@@ -326,41 +337,46 @@ def add_all_wastes_to_room(roomWasteList):
         db.session.rollback()
         logger.warning("add_all_wastes_to_room errorMsg= {} ".format(e))
 
+
 # 根据最后记录ID返回最新流水
-def get_wastes_from_room_by_latestid(roomId:int,latestWasteId:int):
+def get_wastes_from_room_by_latestid(roomId: int, latestWasteId: int):
     try:
-        return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.id>latestWasteId).order_by(RoomWasteBook.id).all()
+        return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId, RoomWasteBook.id > latestWasteId).order_by(RoomWasteBook.id).all()
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
+
 # 查询房间的最后一条流水
-def get_latest_wastes_from_room(roomId:int):
+def get_latest_wastes_from_room(roomId: int):
     try:
         return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId).order_by(RoomWasteBook.id.desc()).first()
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("get_latest_wastes_from_room errorMsg= {} ".format(e))
 
+
 # 查询房间的支付流水
-def get_outlay_wastes_from_room(roomId:int):
+def get_outlay_wastes_from_room(roomId: int):
     try:
-        return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId,RoomWasteBook.type==1).all()
+        return RoomWasteBook.query.filter(RoomWasteBook.room_id == roomId, RoomWasteBook.type == 1).all()
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("get_outlay_wastes_from_room errorMsg= {} ".format(e))
 
+
 # -------------room waste book- end----
 # -------------room_member--start---
 # 更新个人总得分
-def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
+def rm_user_from_room_and_update_settle_score(userId: int, latestRoomId: int):
     try:
         # 创建参数化查询的查询字符串
-        sql = text("SELECT COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND receive_user_id = :userId AND room_id = :roomId),0) - COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND outlay_user_id = :userId AND room_id=:roomId),0) AS score")
+        sql = text(
+            "SELECT COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND receive_user_id = :userId AND room_id = :roomId),0) - COALESCE((SELECT sum(score) FROM room_waste_book WHERE TYPE=1 AND outlay_user_id = :userId AND room_id=:roomId),0) AS score")
         # 执行参数化查询
         curScore = db.session.execute(sql, {"roomId": latestRoomId, "userId": userId}).scalar() or 0
 
-        memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id==userId,RoomMemberInfo.room_id==latestRoomId).first()
+        memberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.room_id == latestRoomId).first()
         if memberInfo is None:
             return
         memberInfo.settle_amount = curScore
@@ -381,15 +397,18 @@ def query_users_in_room(roomId, status=None):
         db.session.rollback()
         logger.warning("get_wastes_from_room_by_latestid errorMsg= {} ".format(e))
 
+
 # 获取房间历史记录
 def query_history_rooms_by_uid(userId):
     try:
-        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.status==0,RoomMemberInfo.user_delete != 1).order_by(RoomMemberInfo.time.desc()).all()
+        return RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.status == 0, RoomMemberInfo.user_delete != 1).order_by(
+            RoomMemberInfo.time.desc()).all()
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.warning("query_history_rooms_by_uid errorMsg= {} ".format(e))
 
-def delete_history_room_by_uid_roomid(userId,roomId):
+
+def delete_history_room_by_uid_roomid(userId, roomId):
     try:
         roomMemberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.room_id == roomId).first()
         roomMemberInfo.user_delete = 1
@@ -401,7 +420,6 @@ def delete_history_room_by_uid_roomid(userId,roomId):
         return False
 
 
-
 def query_room_member_by_roomids(roomIds, userId):
     try:
         return db.session.query(RoomMemberInfo.room_id, User.nickname).filter(User.id == RoomMemberInfo.user_id, RoomMemberInfo.room_id.in_(roomIds),
@@ -410,6 +428,7 @@ def query_room_member_by_roomids(roomIds, userId):
         db.session.rollback()
         logger.warning("query_room_member_by_roomids errorMsg= {} ".format(e))
         return None
+
 
 def query_using_roomid_by_uid(uid):
     """
@@ -427,11 +446,13 @@ def query_using_roomid_by_uid(uid):
         logger.warning("query_using_roomid_by_uid errorMsg= {} ".format(e))
         return None
 
+
 # 获取个人的成绩
 def query_achievement_by_uid(userId):
     try:
-        totalCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.user_delete != 1).count()
-        successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId,RoomMemberInfo.user_delete != 1, RoomMemberInfo.settle_amount >= 0).count()
+        totalCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.user_delete != 1).count()
+        successCount = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.user_delete != 1,
+                                                   RoomMemberInfo.settle_amount >= 0).count()
         return {"totalCount": totalCount, "successCount": successCount}
     except SQLAlchemyError as e:
         db.session.rollback()
