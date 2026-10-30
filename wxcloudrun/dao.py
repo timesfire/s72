@@ -65,7 +65,6 @@ def update_counterbyid(counter):
         counter = query_counterbyid(counter.id)
         if counter is None:
             return
-        db.session.flush()
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -124,7 +123,6 @@ def get_empty_room_and_update_status(myapp):
         if room is not None:
             room.status = 1
             room.use_at = datetime.now()
-            db.session.flush()
             db.session.commit()
         return room
     except SQLAlchemyError as e:
@@ -156,7 +154,6 @@ def update_room_qr_byid(roomId, qr):
         if room is None:
             return
         room.share_qr = qr
-        db.session.flush()
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -170,7 +167,6 @@ def updateUserLatestRoomId(userId, roomId):
             logger.warning("updateUserLatestRoomId 错误：id: {} 查询到到 user 为 None".format(userId))
             return
         user.latest_room_id = roomId
-        db.session.flush()
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -245,7 +241,6 @@ def update_user_by_id(userId, nickname,avatarUrl,avatarFileId):
         if avatarUrl is not None:
             user.avatar_url = avatarUrl
             user.avatar_fileid = avatarFileId
-        db.session.flush()
         db.session.commit()
         return user
     except SQLAlchemyError as e:
@@ -267,7 +262,6 @@ def add_user_to_room(uid, roomId):
             db.session.commit()
         else:
             memberInfo.status=1
-            db.session.flush()
             db.session.commit()
         # if not room.user_ids.__contains__(uid):
         #     room.user_ids.append(uid)
@@ -293,7 +287,6 @@ def autoReleaseRoom(roomId,userScores):
         if room is not None:
             room.status = 2
             room.close_at = datetime.now()
-        db.session.flush()
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -372,7 +365,6 @@ def rm_user_from_room_and_update_settle_score(userId:int,latestRoomId:int):
             return
         memberInfo.settle_amount = curScore
         memberInfo.status = 0
-        db.session.flush()
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -401,7 +393,6 @@ def delete_history_room_by_uid_roomid(userId,roomId):
     try:
         roomMemberInfo = RoomMemberInfo.query.filter(RoomMemberInfo.user_id == userId, RoomMemberInfo.room_id == roomId).first()
         roomMemberInfo.user_delete = 1
-        db.session.flush()
         db.session.commit()
         return True
     except SQLAlchemyError as e:
@@ -482,7 +473,6 @@ def update_game_info(uid, level, power):
             else:
                 gameInfo.level = json.dumps(level)
             logger.warning(gameInfo.level)
-            db.session.flush()
             db.session.commit()
 
     except SQLAlchemyError as e:
